@@ -61,15 +61,15 @@
  ],
  "videos": [
   {
-   "src": "videos/levitating.mp4",
+   "src": "videos/levitating.mp4?v=plus",
    "titulo": "Levitating · el cohete"
   },
   {
-   "src": "videos/within.mp4",
+   "src": "videos/within.mp4?v=plus",
    "titulo": "Within"
   },
   {
-   "src": "videos/goodbye.mp4",
+   "src": "videos/goodbye.mp4?v=plus",
    "titulo": "Time To Say Goodbye"
   }
  ]
