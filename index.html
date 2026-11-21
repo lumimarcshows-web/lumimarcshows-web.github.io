@@ -72,7 +72,8 @@ footer{padding:50px 0 40px;color:var(--mut);font-size:14px;text-align:center}
 </div></nav>
 
 <header class="hero">
- <video src="videos/fuente-nueva.mp4" autoplay muted loop playsinline disablepictureinpicture controlslist="nodownload noremoteplayback" draggable="false"></video>
+ <video id="intro" src="videos/fuente-nueva.mp4" autoplay muted loop playsinline disablepictureinpicture controlslist="nodownload noremoteplayback" draggable="false"></video>
+ <button id="sonido" type="button" aria-label="Activar el sonido" style="position:absolute;z-index:3;right:max(18px,env(safe-area-inset-right));top:18px;width:48px;height:48px;border-radius:50%;border:1px solid rgba(255,255,255,.35);background:rgba(6,11,22,.55);color:#fff;font-size:22px;cursor:pointer;backdrop-filter:blur(6px)">🔇</button>
  <div class="wrap">
   <span class="etq">NUEVO PROGRAMA DE FUENTES</span>
   <h1>La fuente nueva</h1>
@@ -103,11 +104,11 @@ footer{padding:50px 0 40px;color:var(--mut);font-size:14px;text-align:center}
 
 <section id="videos"><div class="wrap">
  <h2>Vídeos virtuales</h2>
- <p class="sub">Así se ven algunos espectáculos en el simulador del programa. Cada golpe está coreografiado a mano.<br><small>🎵 Música original de fondo hecha para la web (no es la canción real): va al mismo ritmo y suena en cada golpe de los chorros.</small></p>
+ <p class="sub">Así se ven algunos espectáculos en el simulador del programa. Cada golpe está coreografiado a mano.</p>
  <div class="videos">
-  <div class="vid"><video src="videos/levitating.mp4" preload="metadata" playsinline loop disablepictureinpicture controlslist="nodownload noremoteplayback" draggable="false"></video><button class="play" aria-label="Reproducir">▶</button><span class="tit">Levitating · el cohete</span></div>
-  <div class="vid"><video src="videos/within.mp4" preload="metadata" playsinline loop disablepictureinpicture controlslist="nodownload noremoteplayback" draggable="false"></video><button class="play" aria-label="Reproducir">▶</button><span class="tit">Within</span></div>
-  <div class="vid"><video src="videos/goodbye.mp4" preload="metadata" playsinline loop disablepictureinpicture controlslist="nodownload noremoteplayback" draggable="false"></video><button class="play" aria-label="Reproducir">▶</button><span class="tit">Time To Say Goodbye</span></div>
+  <div class="vid"><video src="videos/levitating.mp4" preload="metadata" playsinline loop muted disablepictureinpicture controlslist="nodownload noremoteplayback" draggable="false"></video><button class="play" aria-label="Reproducir">▶</button><span class="tit">Levitating · el cohete</span></div>
+  <div class="vid"><video src="videos/within.mp4" preload="metadata" playsinline loop muted disablepictureinpicture controlslist="nodownload noremoteplayback" draggable="false"></video><button class="play" aria-label="Reproducir">▶</button><span class="tit">Within</span></div>
+  <div class="vid"><video src="videos/goodbye.mp4" preload="metadata" playsinline loop muted disablepictureinpicture controlslist="nodownload noremoteplayback" draggable="false"></video><button class="play" aria-label="Reproducir">▶</button><span class="tit">Time To Say Goodbye</span></div>
  </div>
 </div></section>
 
@@ -149,6 +150,9 @@ footer{padding:50px 0 40px;color:var(--mut);font-size:14px;text-align:center}
 <footer><div class="wrap">LUMIMARC · Fuente Musical DMX · hecho por Marc y Claude · Los vídeos y fotos son de Lumimarc.</div></footer>
 
 <script>
+// sonido del vídeo de inicio (audio propio de Lumimarc)
+var intro=document.getElementById("intro"),son=document.getElementById("sonido");
+son.onclick=function(){intro.muted=!intro.muted;if(!intro.muted){intro.play()}son.textContent=intro.muted?"🔇":"🔊";son.setAttribute("aria-label",intro.muted?"Activar el sonido":"Silenciar")};
 // vídeos: se reproducen al pulsar, sin barra de descarga
 document.querySelectorAll(".vid").forEach(function(v){
  var vid=v.querySelector("video"),b=v.querySelector(".play");
