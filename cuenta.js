@@ -44,9 +44,28 @@
   }
 
   // ---------- entrar / crear cuenta ----------
-  function abrirLogin(crear, aviso) {
+  // ---------- prueba "no soy un robot": tocar el chorro del color que se pide ----------
+  var intentos = { n: 0, t: 0 };
+  var COLORES = [["rojo", "#ff4d5e", "red", "vermell", "rouge"], ["azul", "#3fa0ff", "blue", "blau", "bleu"], ["verde", "#3fd07a", "green", "verd", "vert"], ["amarillo", "#ffd23f", "yellow", "groc", "jaune"], ["morado", "#b56bff", "purple", "lila", "violet"]];
+  function pruebaRobot(c) {
+    var caja = el("div", "lm-robot"), lg = document.documentElement.lang || "es", ix = { es: 0, en: 2, ca: 3, fr: 4 }[lg] || 0;
+    var lista = COLORES.slice().sort(function () { return Math.random() - .5 }).slice(0, 4), bueno = lista[Math.floor(Math.random() * 4)], hecho = false;
+    var txt = el("div", "lm-robot-t", "🤖 " + T("no_robot", "¿Eres una persona? Toca el chorro de color") + " "); var nb = el("b", "", bueno[ix]); nb.style.color = bueno[1]; txt.appendChild(nb); caja.appendChild(txt);
+    var fila = el("div", "lm-robot-f");
+    lista.forEach(function (col) {
+      var bt = el("button", "lm-chorro"); bt.type = "button"; bt.style.setProperty("--c", col[1]); bt.setAttribute("aria-label", col[ix]);
+      bt.onclick = function () {
+        if (col === bueno) { hecho = true; caja.classList.add("ok"); txt.textContent = "✅ " + T("eres_persona", "¡Perfecto! Eres una persona.") }
+        else { hecho = false; caja.classList.add("mal"); setTimeout(function () { caja.classList.remove("mal") }, 500) }
+      };
+      fila.appendChild(bt);
+    });
+    caja.appendChild(fila); c.appendChild(caja);
+    return { ok: function () { return hecho } };
+  }
+  function abrirLogin(crear, avisoTxt) {
     var m = modal(crear ? T("crear_cuenta", "Crear cuenta") : T("iniciar", "Iniciar sesión"));
-    if (aviso) { var av = el("div", "lm-aviso-desc", "🔒 " + aviso); m.caja.appendChild(av) }
+    if (avisoTxt) { var av = el("div", "lm-aviso-desc", "🔒 " + avisoTxt); m.caja.appendChild(av) }
     var c = el("form", "lm-form"); c.method = "post"; c.action = "#"; c.autocomplete = "on"; m.caja.appendChild(c);
     var nombre = crear ? campo(c, "text", T("tu_nombre", "Tu nombre o apodo"), "nickname") : null;
     var email = campo(c, "email", T("correo", "Correo electrónico"), "username"); email.name = "email"; email.id = "lm-email";
@@ -60,20 +79,34 @@
       var l2 = el("label", "lm-check"); var avisos = el("input"); avisos.type = "checkbox"; avisos.id = "lm-avisos"; l2.appendChild(avisos);
       l2.appendChild(el("span", "", T("quiero_avisos", "Quiero recibir las novedades de Lumimarc por correo (puedes quitarlo cuando quieras)."))); c.appendChild(l2);
     }
+    var trampa = el("input"); trampa.type = "text"; trampa.name = "web_site"; trampa.tabIndex = -1; trampa.autocomplete = "off";
+    trampa.setAttribute("aria-hidden", "true"); trampa.style.cssText = "position:absolute;left:-9999px;width:1px;height:1px;opacity:0"; c.appendChild(trampa);
+    var abierto = Date.now();
+    var robot = pruebaRobot(c);
     var a = aviso(c);
     var b = el("button", "btn oro lm-ancho", crear ? T("crear_cuenta", "Crear cuenta") : T("entrar", "Entrar")); b.type = "submit"; c.appendChild(b);
     c.addEventListener("submit", function (e) { e.preventDefault(); b.onclick() });
     var otro = el("button", "lm-link", crear ? T("ya_tengo", "Ya tengo cuenta: iniciar sesión") : T("no_tengo", "¿No tienes cuenta? Crear una"));
-    otro.type = "button"; otro.onclick = function () { m.fondo.remove(); abrirLogin(!crear, aviso) }; c.appendChild(otro);
+    otro.type = "button"; otro.onclick = function () { m.fondo.remove(); abrirLogin(!crear, avisoTxt) }; c.appendChild(otro);
     if (!crear) {
       var olv = el("button", "lm-link", T("olvide", "He olvidado la contraseña")); olv.type = "button"; c.appendChild(olv);
       olv.onclick = function () {
         if (!email.value.trim()) { a.textContent = T("pon_correo", "Escribe tu correo arriba y vuelve a pulsar."); return }
+        if (esRobot()) return;
         auth.sendPasswordResetEmail(email.value.trim()).then(function () { a.textContent = T("enviado", "Te hemos enviado un correo para cambiarla.") }, function (e) { a.textContent = err(e) });
       };
     }
+    function esRobot() {
+      if (trampa.value) return true;                                    // ha rellenado la trampa invisible
+      if (Date.now() - abierto < 2500) { a.textContent = T("muy_rapido", "Demasiado rápido 🤖. Espera un momento y vuelve a pulsar."); return true }
+      if (!robot.ok()) { a.textContent = T("e_robot", "Haz la prueba: toca el chorro que se te pide."); return true }
+      if (intentos.n >= 5 && Date.now() - intentos.t < 60000) { a.textContent = T("e_espera", "Demasiados intentos. Espera 1 minuto."); return true }
+      return false;
+    }
     b.onclick = function () {
       a.textContent = "";
+      if (esRobot()) return;
+      intentos.n = (Date.now() - intentos.t > 60000) ? 1 : intentos.n + 1; intentos.t = Date.now();
       if (crear) {
         var n = nombre.value.trim();
         if (!n || n.length > 40) { a.textContent = T("e_nombre", "Escribe un nombre (máx. 40 letras)."); return }
