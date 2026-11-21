@@ -40,3 +40,5 @@ Disallow: /
 User-agent: *
 Disallow: /descargas/
 Allow: /
+
+Sitemap: https://lumimarcshows.com/sitemap.xml
