@@ -3,6 +3,7 @@
   "use strict";
   var D = {
     ca: {
+      bienvenida: "Benvingut/da", bienvenida_txt: "El teu compte de Lumimarc ja està creat. T'hem enviat un correu per confirmar la teva adreça.", lo_nuevo: "El més nou des de la teva última visita", ver_novedades: "Veure les novetats",
       nav_fuente: "La font", nav_videos: "Vídeos", nav_kit: "Kit", nav_novedades: "Novetats", descargar: "⬇ Descarregar",
       etiqueta: "NOU PROGRAMA DE FONTS", titulo: "La font nova",
       intro: "7 dolls d'aigua que ballen amb la música: pugen, baixen, s'inclinen i s'il·luminen de colors. I un programa gratuït per crear els teus propis espectacles.",
@@ -32,6 +33,7 @@
       descargas: "Descàrregues", usuarios: "Persones inscrites", nadie: "Encara no hi ha ningú.", personas: "persones", nuevo_nombre: "Nom nou:", quitar: "Treure de la llista"
     },
     en: {
+      bienvenida: "Welcome", bienvenida_txt: "Your Lumimarc account is ready. We have sent you an email to confirm your address.", lo_nuevo: "What's new since your last visit", ver_novedades: "See the news",
       nav_fuente: "The fountain", nav_videos: "Videos", nav_kit: "Kit", nav_novedades: "News", descargar: "⬇ Download",
       etiqueta: "NEW FOUNTAIN SOFTWARE", titulo: "The new fountain",
       intro: "7 water jets that dance to the music: they rise, fall, tilt and light up in colours. And a free program to create your own shows.",
@@ -61,6 +63,7 @@
       descargas: "Downloads", usuarios: "Registered people", nadie: "Nobody yet.", personas: "people", nuevo_nombre: "New name:", quitar: "Remove from the list"
     },
     fr: {
+      bienvenida: "Bienvenue", bienvenida_txt: "Ton compte Lumimarc est créé. Nous t'avons envoyé un e-mail pour confirmer ton adresse.", lo_nuevo: "Quoi de neuf depuis ta dernière visite", ver_novedades: "Voir les nouveautés",
       nav_fuente: "La fontaine", nav_videos: "Vidéos", nav_kit: "Kit", nav_novedades: "Nouveautés", descargar: "⬇ Télécharger",
       etiqueta: "NOUVEAU LOGICIEL DE FONTAINES", titulo: "La nouvelle fontaine",
       intro: "7 jets d'eau qui dansent sur la musique : ils montent, descendent, s'inclinent et s'illuminent de couleurs. Et un logiciel gratuit pour créer tes propres spectacles.",

@@ -63,7 +63,7 @@
         if (!n || n.length > 40) { a.textContent = T("e_nombre", "Escribe un nombre (máx. 40 letras)."); return }
         if (pass.value.length < 8) { a.textContent = T("e_debil", "La contraseña debe tener al menos 8 caracteres."); return }
         if (!ok18.checked) { a.textContent = T("e_acepta", "Marca la casilla para continuar."); return }
-        b.disabled = true;
+        b.disabled = true; recienCreada = true;
         auth.createUserWithEmailAndPassword(email.value.trim(), pass.value).then(function (r) {
           return r.user.updateProfile({ displayName: n }).then(function () {
             return db.collection("usuarios").doc(r.user.uid).set({ nombre: n, email: r.user.email, creado: firebase.firestore.FieldValue.serverTimestamp(), idioma: document.documentElement.lang || "es" });
@@ -147,9 +147,35 @@
       n.onclick = function () { miCuenta(u, admin) }; hueco.appendChild(n);
     }
   }
+  // ---------- bienvenida y «lo nuevo desde tu última visita» (se guarda en este navegador) ----------
+  var recienCreada = false;
+  function fechaNum(f) { var m = /(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(f || ""); return m ? +m[3] * 10000 + +m[2] * 100 + +m[1] : 0 }
+  function hoyNum() { var d = new Date(); return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate() }
+  function saludo(u) {
+    var clave = "lumiVisto_" + u.uid, visto = 0; try { visto = +localStorage.getItem(clave) || 0 } catch (e) {}
+    var nombre = u.displayName || u.email.split("@")[0];
+    fetch("/contenido.json", { cache: "no-store" }).then(function (r) { return r.json() }).then(function (c) {
+      var nuevas = (c.noticias || []).filter(function (n) { return fechaNum(n.fecha) > visto });
+      if (recienCreada) {
+        var m = modal("🎉 " + T("bienvenida", "¡Bienvenido/a") + ", " + nombre + "!");
+        m.caja.appendChild(el("p", "lm-sub", T("bienvenida_txt", "Tu cuenta de Lumimarc ya está creada. Te hemos enviado un correo para confirmar tu dirección.")));
+      } else if (visto && nuevas.length) {
+        var m2 = modal("🆕 " + T("lo_nuevo", "Lo nuevo desde tu última visita"));
+        nuevas.slice(0, 5).forEach(function (n) {
+          var f = el("div", "lm-fila"); f.style.gridTemplateColumns = "auto 1fr";
+          f.appendChild(el("span", "lm-f", n.fecha || "")); f.appendChild(el("span", "", n.titulo || "")); m2.caja.appendChild(f);
+        });
+        var ver = el("a", "btn oro lm-ancho", T("ver_novedades", "Ver las novedades")); ver.href = "/Novedades"; ver.setAttribute("data-ir", "Novedades");
+        ver.addEventListener("click", function () { m2.fondo.remove() }); m2.caja.appendChild(ver);
+      }
+      try { localStorage.setItem(clave, String(hoyNum())) } catch (e) {}
+    }).catch(function () {});
+  }
+  var yaSaludado = false;
   auth.onAuthStateChanged(function (u) {
-    if (!u) { pintar(null); return }
+    if (!u) { pintar(null); yaSaludado = false; return }
     db.collection("admins").doc(u.uid).get().then(function (s) { pintar(u, s.exists) }, function () { pintar(u, false) });
+    if (!yaSaludado) { yaSaludado = true; setTimeout(function () { saludo(auth.currentUser || u); recienCreada = false }, recienCreada ? 1500 : 800) }
   });
 
   // ---------- contar descargas (anónimo: solo el tipo, la fecha y el idioma) ----------
