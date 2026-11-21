@@ -3,9 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
-<link rel="icon" type="image/png" sizes="64x64" href="/favicon-64.png">
-<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="icon" href="/favicon.ico?v=2" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png?v=2">
+<link rel="icon" type="image/png" sizes="64x64" href="/favicon-64.png?v=2">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2">
 <title>Lumimarc · Fuente Musical DMX</title>
 <meta name="description" content="La fuente nueva de Lumimarc: 7 chorros que bailan con la música. Descarga gratis el programa Fuente Musical DMX.">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -68,6 +69,16 @@ footer{padding:50px 0 40px;color:var(--mut);font-size:14px;text-align:center}
 .idioma{display:flex;gap:2px;background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:999px;padding:2px}
 .idioma button{border:0;background:none;color:var(--mut);font:800 12px Nunito,sans-serif;padding:5px 8px;border-radius:999px;cursor:pointer}
 .idioma button.on{background:var(--oro);color:#2a1a00}
+/* editar la web (solo Marc) */
+.lm-barra{position:fixed;z-index:39;top:calc(var(--navh,64px) + 8px);left:max(16px,env(safe-area-inset-left));display:inline-flex;gap:4px;padding:5px;border-radius:999px;background:rgba(6,11,22,.85);border:1px solid var(--line);backdrop-filter:blur(8px);box-shadow:0 6px 24px rgba(0,0,0,.45)}.lm-barra button{border:1px solid var(--line);background:rgba(255,255,255,.06);color:#e8f0ff;border-radius:999px;padding:5px 10px;font:600 13px system-ui;cursor:pointer}
+.lm-barra button.on{background:var(--oro);color:#1a1205;border-color:var(--oro)}.lm-barra .guardar{background:#1f7a3a;border-color:#3fd07a}
+.lm-estado{position:fixed;left:50%;bottom:max(16px,env(safe-area-inset-bottom));transform:translateX(-50%);z-index:41;background:#10203f;border:1px solid var(--oro);color:#ffe9b8;padding:8px 14px;border-radius:12px;font-size:14px;max-width:calc(100% - 32px)}.lm-estado:empty{display:none}
+.lm-editando [contenteditable]{outline:2px dashed var(--oro);outline-offset:4px;border-radius:4px;cursor:text}
+.lm-ed{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0}.lm-ed-sec{justify-content:flex-end;max-width:1100px;margin:0 auto 6px;padding:0 18px}
+.lm-ed-mini{position:absolute;top:8px;right:8px;z-index:5;margin:0}.vid{position:relative}
+.lm-ed-b{border:1px solid var(--oro);background:rgba(6,11,22,.85);color:#ffe9b8;border-radius:10px;padding:5px 9px;font:600 13px system-ui;cursor:pointer}.lm-ed-b.rojo{border-color:#ff6b6b;color:#ffb3b3}.lm-ed-b.grande{padding:9px 14px;font-size:15px}
+.lm-ed-nueva{justify-content:center;padding:20px 18px 40px}
+@media (max-width:760px){.lm-barra button{padding:4px 7px;font-size:12px}}
 /* cuentas */
 .lm-verif{position:fixed;left:50%;bottom:max(16px,env(safe-area-inset-bottom));transform:translateX(-50%);z-index:40;display:flex;gap:10px;align-items:center;flex-wrap:wrap;max-width:calc(100% - 32px);background:#3a2a08;border:1px solid var(--oro);color:#ffe9b8;padding:10px 14px;border-radius:14px;font-size:14px;box-shadow:0 8px 30px rgba(0,0,0,.5)}
 #cuenta{display:inline-flex}
@@ -216,8 +227,9 @@ activarVideos();
 document.addEventListener("dragstart",function(e){if(e.target.closest("video,img"))e.preventDefault()});
 // novedades y versión (contenido.json se cambia desde la app de Marc)
 fetch("/contenido.json",{cache:"no-store"}).then(function(r){return r.json()}).then(function(c){
- pintarContenido(c);
  if(c.version)document.getElementById("ver").textContent=(window.lumiT?window.lumiT("version","Versión"):"Versión")+" "+c.version+(c.fecha_version?" · "+c.fecha_version:"");
+ if(window.lumiEditor)return;   // editor.js pinta textos, fotos, vídeos y novedades (con lo guardado en Firebase)
+ pintarContenido(c);
  var L=document.getElementById("lista");
  (c.noticias||[]).forEach(function(n){
   var a=document.createElement("article");a.className="noticia"+(n.foto?"":" sin-foto");
@@ -237,5 +249,6 @@ fetch("/contenido.json",{cache:"no-store"}).then(function(r){return r.json()}).t
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4.4.1/dist/email.min.js"></script>
 <script src="/cuenta.js"></script>
+<script src="/editor.js"></script>
 </body>
 </html>
