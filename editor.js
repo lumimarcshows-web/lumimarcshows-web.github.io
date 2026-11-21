@@ -101,7 +101,7 @@
     if (editando && sinGuardar && !bP.dataset.ok) { bP.dataset.ok = 1; estado.textContent = T("sin_guardar", "Hay cambios sin guardar. Pulsa otra vez para salir sin guardar."); return }
     delete bP.dataset.ok; editando = false; sinGuardar = false; bP.classList.add("on"); bE.classList.remove("on"); bG.hidden = true; estado.textContent = ""; document.body.classList.remove("lm-editando"); cargar();
   };
-  bE.onclick = function () { editando = true; bE.classList.add("on"); bP.classList.remove("on"); bG.hidden = false; document.body.classList.add("lm-editando"); estado.textContent = T("modo_editar", "Toca los textos para cambiarlos."); modoEditar(true) };
+  bE.onclick = function () { if (!admin) { barra.hidden = true; return } editando = true; bE.classList.add("on"); bP.classList.remove("on"); bG.hidden = false; document.body.classList.add("lm-editando"); estado.textContent = T("modo_editar", "Toca los textos para cambiarlos."); modoEditar(true) };
   var sinGuardar = false;
   function cambio() { sinGuardar = true; estado.textContent = "✏️ " + T("cambios", "Cambios sin guardar") }
 

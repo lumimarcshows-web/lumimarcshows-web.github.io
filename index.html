@@ -70,6 +70,7 @@ footer{padding:50px 0 40px;color:var(--mut);font-size:14px;text-align:center}
 .idioma button{border:0;background:none;color:var(--mut);font:800 12px Nunito,sans-serif;padding:5px 8px;border-radius:999px;cursor:pointer}
 .idioma button.on{background:var(--oro);color:#2a1a00}
 /* editar la web (solo Marc) */
+.lm-barra[hidden],.lm-ed[hidden]{display:none!important}
 .lm-barra{position:fixed;z-index:39;top:calc(var(--navh,64px) + 8px);left:max(16px,env(safe-area-inset-left));display:inline-flex;gap:4px;padding:5px;border-radius:999px;background:rgba(6,11,22,.85);border:1px solid var(--line);backdrop-filter:blur(8px);box-shadow:0 6px 24px rgba(0,0,0,.45)}.lm-barra button{border:1px solid var(--line);background:rgba(255,255,255,.06);color:#e8f0ff;border-radius:999px;padding:5px 10px;font:600 13px system-ui;cursor:pointer}
 .lm-barra button.on{background:var(--oro);color:#1a1205;border-color:var(--oro)}.lm-barra .guardar{background:#1f7a3a;border-color:#3fd07a}
 .lm-estado{position:fixed;left:50%;bottom:max(16px,env(safe-area-inset-bottom));transform:translateX(-50%);z-index:41;background:#10203f;border:1px solid var(--oro);color:#ffe9b8;padding:8px 14px;border-radius:12px;font-size:14px;max-width:calc(100% - 32px)}.lm-estado:empty{display:none}
