@@ -179,6 +179,7 @@ nav .enl{display:contents}
  footer{padding-bottom:max(40px,env(safe-area-inset-bottom))}
 }
 @media (max-width:360px){.galeria{grid-template-columns:1fr}.idioma button{padding:4px 5px}}
+.ayuda-inst{max-width:340px;margin-top:12px;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px 12px;font-size:14px;color:var(--mut)}.ayuda-inst summary{cursor:pointer;color:var(--oro);font-weight:700}.ayuda-inst p{margin:8px 0}.ayuda-inst b{color:var(--fg)}
 </style>
 </head>
 <body oncontextmenu="if(event.target.closest('video,img'))return false">
@@ -246,7 +247,11 @@ nav .enl{display:contents}
    <a class="btn oro" id="bajar" data-descarga="windows" href="/descargas/Fuente%20Musical%20DMX%20para%20Windows.zip" download data-i18n="desc_win">⬇ Descargar para Windows</a>
    <a class="btn vidrio" id="bajarmac" data-descarga="mac" style="margin-top:10px" href="/descargas/Fuente%20Musical%20DMX%20para%20Mac.zip" download data-i18n="desc_mac">🍎 Descargar para Mac</a>
    <div class="req" id="ver" data-i18n="ultima">Última versión</div>
-   <div class="req" data-i18n="req1">Windows 10/11 o Mac · necesita Chrome o Edge · la música la pones tú</div><div class="req" data-i18n="req2">Se descarga un zip: descomprímelo y abre el instalador. En Mac, la primera vez: clic derecho sobre la app → Abrir</div><div class="req" id="progidioma" data-i18n="prog_idioma" hidden>El programa de momento está en castellano.</div>
+   <div class="req" data-i18n="req1">Windows 10/11 o Mac · necesita Chrome o Edge · la música la pones tú</div><div class="req" data-i18n="req2">Se descarga un zip: descomprímelo y abre el instalador. En Mac, la primera vez: clic derecho sobre la app → Abrir</div><details class="ayuda-inst"><summary data-i18n="ayuda_tit">🛡 ¿Sale un aviso al instalar? Es normal</summary>
+<p data-i18n="ayuda_por">El programa es seguro, pero todavía no tiene «firma digital» y por eso Windows y Mac avisan la primera vez.</p>
+<p><b>🪟 Windows</b> · <span data-i18n="ayuda_win">Si sale «Windows protegió tu PC»: pulsa «Más información» → «Ejecutar de todas formas».</span></p>
+<p><b>🍎 Mac</b> · <span data-i18n="ayuda_mac">Si dice que no se puede abrir: clic derecho sobre la app → «Abrir» → «Abrir». Si no sale: Ajustes del Sistema → Privacidad y seguridad → abajo, «Abrir igualmente».</span></p>
+</details><div class="req" id="progidioma" data-i18n="prog_idioma" hidden>El programa de momento está en castellano.</div>
   </div>
  </div>
 </div></section>
