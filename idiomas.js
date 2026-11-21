@@ -3,11 +3,7 @@
   "use strict";
   var D = {
     ca: {
-      quiero_avisos: "Vull rebre les novetats de Lumimarc per correu (ho pots treure quan vulguis).", sin_verificar: "Confirma el teu correu: obre el missatge que t'hem enviat i prem l'enllaç.", reenviar: "Reenviar", reenviado: "Enviat", ya_verifique: "Ja ho he fet", todavia_no: "Encara no apareix verificat", verificado: "verificat", no_verificado: "sense verificar", m_bien_asunto: "Benvingut/da a Lumimarc Shows! 🎉", m_bien_texto: "El teu compte de Lumimarc ja està creat.
-
-Ara pots descarregar el programa Fuente Musical DMX, el kit per construir la teva font i veure els vídeos dels espectacles.
-
-També t'hem enviat un altre correu per confirmar la teva adreça: obre'l i prem l'enllaç.", m_bien_boton: "Anar a Lumimarc",
+      quiero_avisos: "Vull rebre les novetats de Lumimarc per correu (ho pots treure quan vulguis).", sin_verificar: "Confirma el teu correu: obre el missatge que t'hem enviat i prem l'enllaç.", reenviar: "Reenviar", reenviado: "Enviat", ya_verifique: "Ja ho he fet", todavia_no: "Encara no apareix verificat", verificado: "verificat", no_verificado: "sense verificar", m_bien_asunto: "Benvingut/da a Lumimarc Shows! 🎉", m_bien_texto: "El teu compte de Lumimarc ja està creat.\n\nAra pots descarregar el programa Fuente Musical DMX, el kit per construir la teva font i veure els vídeos dels espectacles.\n\nTambé t'hem enviat un altre correu per confirmar la teva adreça: obre'l i prem l'enllaç.", m_bien_boton: "Anar a Lumimarc",
       bienvenida: "Benvingut/da", bienvenida_txt: "El teu compte de Lumimarc ja està creat. T'hem enviat un correu per confirmar la teva adreça.", lo_nuevo: "El més nou des de la teva última visita", ver_novedades: "Veure les novetats",
       nav_fuente: "La font", nav_videos: "Vídeos", nav_kit: "Kit", nav_novedades: "Novetats", descargar: "⬇ Descarregar",
       etiqueta: "NOU PROGRAMA DE FONTS", titulo: "La font nova",
@@ -38,11 +34,7 @@ També t'hem enviat un altre correu per confirmar la teva adreça: obre'l i prem
       descargas: "Descàrregues", usuarios: "Persones inscrites", nadie: "Encara no hi ha ningú.", personas: "persones", nuevo_nombre: "Nom nou:", quitar: "Treure de la llista"
     },
     en: {
-      quiero_avisos: "I want to get Lumimarc news by email (you can turn it off anytime).", sin_verificar: "Confirm your email: open the message we sent you and click the link.", reenviar: "Resend", reenviado: "Sent", ya_verifique: "I've done it", todavia_no: "Not verified yet", verificado: "verified", no_verificado: "not verified", m_bien_asunto: "Welcome to Lumimarc Shows! 🎉", m_bien_texto: "Your Lumimarc account is ready.
-
-Now you can download the Fuente Musical DMX program, the kit to build your fountain and watch the show videos.
-
-We have also sent you another email to confirm your address: open it and click the link.", m_bien_boton: "Go to Lumimarc",
+      quiero_avisos: "I want to get Lumimarc news by email (you can turn it off anytime).", sin_verificar: "Confirm your email: open the message we sent you and click the link.", reenviar: "Resend", reenviado: "Sent", ya_verifique: "I've done it", todavia_no: "Not verified yet", verificado: "verified", no_verificado: "not verified", m_bien_asunto: "Welcome to Lumimarc Shows! 🎉", m_bien_texto: "Your Lumimarc account is ready.\n\nNow you can download the Fuente Musical DMX program, the kit to build your fountain and watch the show videos.\n\nWe have also sent you another email to confirm your address: open it and click the link.", m_bien_boton: "Go to Lumimarc",
       bienvenida: "Welcome", bienvenida_txt: "Your Lumimarc account is ready. We have sent you an email to confirm your address.", lo_nuevo: "What's new since your last visit", ver_novedades: "See the news",
       nav_fuente: "The fountain", nav_videos: "Videos", nav_kit: "Kit", nav_novedades: "News", descargar: "⬇ Download",
       etiqueta: "NEW FOUNTAIN SOFTWARE", titulo: "The new fountain",
@@ -73,11 +65,7 @@ We have also sent you another email to confirm your address: open it and click t
       descargas: "Downloads", usuarios: "Registered people", nadie: "Nobody yet.", personas: "people", nuevo_nombre: "New name:", quitar: "Remove from the list"
     },
     fr: {
-      quiero_avisos: "Je veux recevoir les nouveautés de Lumimarc par e-mail (tu peux l'enlever quand tu veux).", sin_verificar: "Confirme ton e-mail : ouvre le message envoyé et clique sur le lien.", reenviar: "Renvoyer", reenviado: "Envoyé", ya_verifique: "C'est fait", todavia_no: "Pas encore vérifié", verificado: "vérifié", no_verificado: "non vérifié", m_bien_asunto: "Bienvenue chez Lumimarc Shows ! 🎉", m_bien_texto: "Ton compte Lumimarc est créé.
-
-Tu peux maintenant télécharger le logiciel Fuente Musical DMX, le kit pour construire ta fontaine et voir les vidéos des spectacles.
-
-Nous t'avons aussi envoyé un autre e-mail pour confirmer ton adresse : ouvre-le et clique sur le lien.", m_bien_boton: "Aller sur Lumimarc",
+      quiero_avisos: "Je veux recevoir les nouveautés de Lumimarc par e-mail (tu peux l'enlever quand tu veux).", sin_verificar: "Confirme ton e-mail : ouvre le message envoyé et clique sur le lien.", reenviar: "Renvoyer", reenviado: "Envoyé", ya_verifique: "C'est fait", todavia_no: "Pas encore vérifié", verificado: "vérifié", no_verificado: "non vérifié", m_bien_asunto: "Bienvenue chez Lumimarc Shows ! 🎉", m_bien_texto: "Ton compte Lumimarc est créé.\n\nTu peux maintenant télécharger le logiciel Fuente Musical DMX, le kit pour construire ta fontaine et voir les vidéos des spectacles.\n\nNous t'avons aussi envoyé un autre e-mail pour confirmer ton adresse : ouvre-le et clique sur le lien.", m_bien_boton: "Aller sur Lumimarc",
       bienvenida: "Bienvenue", bienvenida_txt: "Ton compte Lumimarc est créé. Nous t'avons envoyé un e-mail pour confirmer ton adresse.", lo_nuevo: "Quoi de neuf depuis ta dernière visite", ver_novedades: "Voir les nouveautés",
       nav_fuente: "La fontaine", nav_videos: "Vidéos", nav_kit: "Kit", nav_novedades: "Nouveautés", descargar: "⬇ Télécharger",
       etiqueta: "NOUVEAU LOGICIEL DE FONTAINES", titulo: "La nouvelle fontaine",
