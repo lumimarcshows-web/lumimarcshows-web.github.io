@@ -1,0 +1,8 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8"><title>Lumimarc</title>
+<script>
+// lumimarcshows.com/Videos (o /Kit, /Home...) no existe como archivo: volvemos a la web y saltamos a esa parte
+var p = location.pathname.replace(/^\/+|\/+$/g, "");
+location.replace("/?r=" + encodeURIComponent(p) + (location.search ? "&" + location.search.slice(1) : ""));
+</script></head>
+<body style="background:#060b16"></body></html>

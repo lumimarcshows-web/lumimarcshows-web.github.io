@@ -61,6 +61,10 @@ h2{font:700 clamp(26px,4vw,38px) Cinzel,serif;margin:0 0 8px;text-wrap:balance}
 .zona{display:flex;gap:18px;align-items:center;justify-content:space-between;flex-wrap:wrap;background:var(--card);border:1px dashed #3a4f86;border-radius:18px;padding:22px}
 footer{padding:50px 0 40px;color:var(--mut);font-size:14px;text-align:center}
 
+/* idioma */
+.idioma{display:flex;gap:2px;background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:999px;padding:2px}
+.idioma button{border:0;background:none;color:var(--mut);font:800 12px Nunito,sans-serif;padding:5px 8px;border-radius:999px;cursor:pointer}
+.idioma button.on{background:var(--oro);color:#2a1a00}
 /* cuentas */
 #cuenta{display:inline-flex}
 .lm-fondo{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:16px}
@@ -83,56 +87,56 @@ footer{padding:50px 0 40px;color:var(--mut);font-size:14px;text-align:center}
 .lm-e,.lm-f{color:var(--mut)}
 .lm-mini{border:0;border-radius:6px;background:var(--bg);color:var(--fg);cursor:pointer;padding:4px 7px}
 @media (max-width:560px){.lm-fila{grid-template-columns:1fr auto auto}.lm-e,.lm-f{display:none}}
-@media (max-width:760px){.descarga{grid-template-columns:1fr;padding:22px}.noticia{grid-template-columns:1fr}.noticia div{padding:0 14px 14px}nav a.l{display:none}}
+@media (max-width:760px){nav .wrap{gap:8px}nav .btn.oro.peq{display:none}.idioma button{padding:5px 6px}.logo{font-size:18px}.descarga{grid-template-columns:1fr;padding:22px}.noticia{grid-template-columns:1fr}.noticia div{padding:0 14px 14px}nav a.l{display:none}}
 @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
 </style>
 </head>
 <body oncontextmenu="if(event.target.closest('video,img'))return false">
 <nav><div class="wrap">
- <a class="logo" href="#">LUMIMARC</a>
- <a class="l" href="#fuente">La fuente</a><a class="l" href="#videos">Vídeos</a><a class="l" href="#noticias">Novedades</a>
- <a class="btn oro peq" href="#descargar">⬇ Descargar</a>
+ <a class="logo" href="/Home" data-ir="Home">LUMIMARC</a>
+ <a class="l" href="/Fuente" data-ir="Fuente" data-i18n="nav_fuente">La fuente</a><a class="l" href="/Videos" data-ir="Videos" data-i18n="nav_videos">Vídeos</a><a class="l" href="/Kit" data-ir="Kit" data-i18n="nav_kit">Kit</a><a class="l" href="/Novedades" data-ir="Novedades" data-i18n="nav_novedades">Novedades</a>
+ <a class="btn oro peq" href="/Descargar" data-ir="Descargar" data-i18n="descargar">⬇ Descargar</a>
  <span id="cuenta"></span>
 </div></nav>
 
-<header class="hero">
- <video id="intro" src="videos/fuente-nueva.mp4" autoplay muted loop playsinline disablepictureinpicture controlslist="nodownload noremoteplayback" draggable="false"></video>
+<header class="hero" id="home">
+ <video id="intro" src="/videos/fuente-nueva.mp4" autoplay muted loop playsinline disablepictureinpicture controlslist="nodownload noremoteplayback" draggable="false"></video>
  <button id="sonido" type="button" aria-label="Activar el sonido" style="position:absolute;z-index:3;right:max(18px,env(safe-area-inset-right));top:18px;width:48px;height:48px;border-radius:50%;border:1px solid rgba(255,255,255,.35);background:rgba(6,11,22,.55);color:#fff;font-size:22px;cursor:pointer;backdrop-filter:blur(6px)">🔇</button>
  <div class="wrap">
-  <span class="etq" data-ed="etiqueta">NUEVO PROGRAMA DE FUENTES</span>
-  <h1 data-ed="titulo">La fuente nueva</h1>
-  <p data-ed="intro">7 chorros de agua que bailan con la música: suben, bajan, se inclinan y se iluminan de colores. Y un programa gratis para crear tus propios espectáculos.</p>
-  <div class="fila"><a class="btn oro" href="#descargar">⬇ Descargar el programa</a><a class="btn vidrio" href="#videos">▶ Ver vídeos</a></div>
+  <span class="etq" data-ed="etiqueta" data-i18n="etiqueta">NUEVO PROGRAMA DE FUENTES</span>
+  <h1 data-ed="titulo" data-i18n="titulo">La fuente nueva</h1>
+  <p data-ed="intro" data-i18n="intro">7 chorros de agua que bailan con la música: suben, bajan, se inclinan y se iluminan de colores. Y un programa gratis para crear tus propios espectáculos.</p>
+  <div class="fila"><a class="btn oro" href="/Descargar" data-ir="Descargar" data-i18n="btn_prog">⬇ Descargar el programa</a><a class="btn vidrio" href="/Videos" data-ir="Videos" data-i18n="btn_videos">▶ Ver vídeos</a></div>
  </div>
 </header>
 
 <main>
 <section id="fuente"><div class="wrap">
- <h2 data-ed="fuente_titulo">La fuente</h2>
- <p class="sub" data-ed="fuente_texto">Diseñada e impresa en 3D por Marc. Cada chorro tiene su bomba con altura regulable, un servo que lo inclina y un aro de luces LED.</p>
+ <h2 data-ed="fuente_titulo" data-i18n="fuente_titulo">La fuente</h2>
+ <p class="sub" data-ed="fuente_texto" data-i18n="fuente_texto">Diseñada e impresa en 3D por Marc. Cada chorro tiene su bomba con altura regulable, un servo que lo inclina y un aro de luces LED.</p>
  <div class="datos">
-  <div class="dato"><b>7</b>chorros de agua</div>
-  <div class="dato"><b>0–100 %</b>altura de cada chorro (MOSFET)</div>
-  <div class="dato"><b>±20°</b>inclinación con servos</div>
-  <div class="dato"><b>DMX</b>se conecta a las luces del escenario</div>
+  <div class="dato"><b>7</b><span data-i18n="d1">chorros de agua</span></div>
+  <div class="dato"><b>0–100 %</b><span data-i18n="d2">altura de cada chorro (MOSFET)</span></div>
+  <div class="dato"><b>±20°</b><span data-i18n="d3">inclinación con servos</span></div>
+  <div class="dato"><b>DMX</b><span data-i18n="d4">se conecta a las luces del escenario</span></div>
  </div>
  <div class="galeria" id="galeria" style="margin-top:22px">
-  <figure><img src="fotos/fuente-33.jpg" alt="La fuente Lumimarc encendida con arcos dorados" loading="lazy"><figcaption>La fuente terminada</figcaption></figure>
-  <figure><img src="fotos/fuente-26.jpg" alt="Los 7 chorros rectos con luces" loading="lazy"><figcaption>¡Agua!</figcaption></figure>
-  <figure><img src="fotos/fuente-14.jpg" alt="Ménsulas y bombas dentro de la caja" loading="lazy"><figcaption>Ménsulas y bombas</figcaption></figure>
-  <figure><img src="fotos/fuente-20.jpg" alt="Tapa con los servos" loading="lazy"><figcaption>La tapa con los servos</figcaption></figure>
-  <figure><img src="fotos/fuente-8.jpg" alt="La caja de madera" loading="lazy"><figcaption>La caja de madera</figcaption></figure>
-  <figure><img src="fotos/fuente-2.jpg" alt="Título La fuente nueva" loading="lazy"><figcaption>Lumimarc Shows presenta…</figcaption></figure>
+  <figure><img src="/fotos/fuente-33.jpg" alt="La fuente Lumimarc encendida con arcos dorados" loading="lazy"><figcaption>La fuente terminada</figcaption></figure>
+  <figure><img src="/fotos/fuente-26.jpg" alt="Los 7 chorros rectos con luces" loading="lazy"><figcaption>¡Agua!</figcaption></figure>
+  <figure><img src="/fotos/fuente-14.jpg" alt="Ménsulas y bombas dentro de la caja" loading="lazy"><figcaption>Ménsulas y bombas</figcaption></figure>
+  <figure><img src="/fotos/fuente-20.jpg" alt="Tapa con los servos" loading="lazy"><figcaption>La tapa con los servos</figcaption></figure>
+  <figure><img src="/fotos/fuente-8.jpg" alt="La caja de madera" loading="lazy"><figcaption>La caja de madera</figcaption></figure>
+  <figure><img src="/fotos/fuente-2.jpg" alt="Título La fuente nueva" loading="lazy"><figcaption>Lumimarc Shows presenta…</figcaption></figure>
  </div>
 </div></section>
 
 <section id="videos"><div class="wrap">
- <h2 data-ed="videos_titulo">Vídeos virtuales</h2>
- <p class="sub" data-ed="videos_texto">Así se ven algunos espectáculos en el simulador del programa. Cada golpe está coreografiado a mano.</p>
+ <h2 data-ed="videos_titulo" data-i18n="videos_titulo">Vídeos virtuales</h2>
+ <p class="sub" data-ed="videos_texto" data-i18n="videos_texto">Así se ven algunos espectáculos en el simulador del programa. Cada golpe está coreografiado a mano.</p>
  <div class="videos" id="vids">
-  <div class="vid"><video src="videos/levitating.mp4" preload="metadata" playsinline loop muted disablepictureinpicture controlslist="nodownload noremoteplayback" draggable="false"></video><button class="play" aria-label="Reproducir">▶</button><span class="tit">Levitating · el cohete</span></div>
-  <div class="vid"><video src="videos/within.mp4" preload="metadata" playsinline loop muted disablepictureinpicture controlslist="nodownload noremoteplayback" draggable="false"></video><button class="play" aria-label="Reproducir">▶</button><span class="tit">Within</span></div>
-  <div class="vid"><video src="videos/goodbye.mp4" preload="metadata" playsinline loop muted disablepictureinpicture controlslist="nodownload noremoteplayback" draggable="false"></video><button class="play" aria-label="Reproducir">▶</button><span class="tit">Time To Say Goodbye</span></div>
+  <div class="vid"><video src="/videos/levitating.mp4" preload="metadata" playsinline loop muted disablepictureinpicture controlslist="nodownload noremoteplayback" draggable="false"></video><button class="play" aria-label="Reproducir">▶</button><span class="tit">Levitating · el cohete</span></div>
+  <div class="vid"><video src="/videos/within.mp4" preload="metadata" playsinline loop muted disablepictureinpicture controlslist="nodownload noremoteplayback" draggable="false"></video><button class="play" aria-label="Reproducir">▶</button><span class="tit">Within</span></div>
+  <div class="vid"><video src="/videos/goodbye.mp4" preload="metadata" playsinline loop muted disablepictureinpicture controlslist="nodownload noremoteplayback" draggable="false"></video><button class="play" aria-label="Reproducir">▶</button><span class="tit">Time To Say Goodbye</span></div>
  </div>
 </div></section>
 
@@ -140,38 +144,51 @@ footer{padding:50px 0 40px;color:var(--mut);font-size:14px;text-align:center}
  <div class="descarga">
   <div>
    <h2>Fuente Musical DMX</h2>
-   <p class="sub" data-ed="programa_texto" style="margin-bottom:14px">El programa para crear espectáculos de agua, luz y música. Gratis.</p>
+   <p class="sub" data-ed="programa_texto" data-i18n="programa_texto" style="margin-bottom:14px">El programa para crear espectáculos de agua, luz y música. Gratis.</p>
    <ul>
-    <li>Línea de tiempo con bloques: alturas, rampas, inclinación y colores</li>
-    <li>Simulador 3D para ver el show sin agua</li>
-    <li>Conexión con Arduino (USB) y con luces DMX</li>
-    <li>Se actualiza solo cuando hay versión nueva o shows nuevos</li>
+    <li data-i18n="li1">Línea de tiempo con bloques: alturas, rampas, inclinación y colores</li>
+    <li data-i18n="li2">Simulador 3D para ver el show sin agua</li>
+    <li data-i18n="li3">Conexión con Arduino (USB) y con luces DMX</li>
+    <li data-i18n="li4">Se actualiza solo cuando hay versión nueva o shows nuevos</li>
    </ul>
   </div>
   <div style="text-align:center;display:flex;flex-direction:column;align-items:center">
-   <a class="btn oro" id="bajar" data-descarga="windows" href="descargas/Fuente%20Musical%20DMX%20para%20Windows.zip" download>⬇ Descargar para Windows</a>
-   <a class="btn vidrio" id="bajarmac" data-descarga="mac" style="margin-top:10px" href="descargas/Fuente%20Musical%20DMX%20para%20Mac.zip" download>🍎 Descargar para Mac</a>
-   <div class="req" id="ver">Última versión</div>
-   <div class="req">Windows 10/11 o Mac · necesita Chrome o Edge · la música la pones tú<br>Se descarga un zip: descomprímelo y abre el instalador.<br>En Mac, la primera vez: clic derecho sobre la app → Abrir</div>
+   <a class="btn oro" id="bajar" data-descarga="windows" href="/descargas/Fuente%20Musical%20DMX%20para%20Windows.zip" download data-i18n="desc_win">⬇ Descargar para Windows</a>
+   <a class="btn vidrio" id="bajarmac" data-descarga="mac" style="margin-top:10px" href="/descargas/Fuente%20Musical%20DMX%20para%20Mac.zip" download data-i18n="desc_mac">🍎 Descargar para Mac</a>
+   <div class="req" id="ver" data-i18n="ultima">Última versión</div>
+   <div class="req" data-i18n="req1">Windows 10/11 o Mac · necesita Chrome o Edge · la música la pones tú</div><div class="req" data-i18n="req2">Se descarga un zip: descomprímelo y abre el instalador. En Mac, la primera vez: clic derecho sobre la app → Abrir</div><div class="req" id="progidioma" data-i18n="prog_idioma" hidden>El programa de momento está en castellano.</div>
+  </div>
+ </div>
+</div></section>
+
+<section id="kit"><div class="wrap">
+ <div class="descarga">
+  <div>
+   <h2 data-i18n="kit_titulo">Construye tu fuente</h2>
+   <p class="sub" data-i18n="kit_texto" style="margin-bottom:0">Todo lo que necesitas para hacerte la fuente Lumimarc: lista de materiales, cortes de madera y de lámina, piezas 3D (STL), esquema de la electrónica y el programa de Arduino. Con guía en tu idioma.</p>
+  </div>
+  <div style="text-align:center;display:flex;flex-direction:column;align-items:center">
+   <a class="btn oro" id="bajarkit" data-descarga="kit" href="/descargas/kit/Kit%20Fuente%20Lumimarc%20(ES).zip" download data-i18n="kit_btn">🧰 Descargar el kit (zip)</a>
+   <div class="req" data-i18n="kit_req">Piezas para impresora 3D (cama de 256 mm) · Arduino Mega</div>
   </div>
  </div>
 </div></section>
 
 <section id="noticias"><div class="wrap">
- <h2 data-ed="novedades_titulo">Novedades</h2>
- <p class="sub" data-ed="novedades_texto">Lo último que hemos hecho.</p>
+ <h2 data-ed="novedades_titulo" data-i18n="novedades_titulo">Novedades</h2>
+ <p class="sub" data-ed="novedades_texto" data-i18n="novedades_texto">Lo último que hemos hecho.</p>
  <div class="noticias" id="lista"></div>
 </div></section>
 
 <section id="zona"><div class="wrap">
  <div class="zona">
-  <div><h2 style="font-size:24px;margin:0">🔐 Zona de Marc</h2><div class="req" style="margin:4px 0 0">Solo para el creador: entra con su cuenta de Microsoft.</div></div>
-  <a class="btn vidrio" href="https://onedrive.live.com/" target="_blank" rel="noopener">Iniciar sesión</a>
+  <div><h2 style="font-size:24px;margin:0" data-i18n="zona_titulo">🔐 Zona de Marc</h2><div class="req" style="margin:4px 0 0" data-i18n="zona_texto">Solo para el creador: entra con su cuenta de Microsoft.</div></div>
+  <a class="btn vidrio" href="https://onedrive.live.com/" target="_blank" rel="noopener" data-i18n="zona_btn">Iniciar sesión</a>
  </div>
 </div></section>
 </main>
 
-<footer><div class="wrap">LUMIMARC · Fuente Musical DMX · hecho por Marc y Claude · Los vídeos y fotos son de Lumimarc. · <a href="privacidad.html">Privacidad</a></div></footer>
+<footer><div class="wrap"><span data-i18n="pie">LUMIMARC · Fuente Musical DMX · hecho por Marc y Claude · Los vídeos y fotos son de Lumimarc.</span> · <a href="/privacidad.html" data-i18n="privacidad">Privacidad</a></div></footer>
 
 <script>
 // sonido del vídeo de inicio (audio propio de Lumimarc)
@@ -180,7 +197,7 @@ son.onclick=function(){intro.muted=!intro.muted;if(!intro.muted){intro.play()}so
 
 // textos, fotos y vídeos editables (contenido.json, se cambia desde la app de Marc)
 function pintarContenido(c){
- var T=c.textos||{};document.querySelectorAll("[data-ed]").forEach(function(e){var k=e.getAttribute("data-ed");if(T[k]!=null)e.textContent=T[k]});
+ var T=(window.lumiLang&&window.lumiLang!=="es")?(c["textos_"+window.lumiLang]||{}):(c.textos||{});document.querySelectorAll("[data-ed]").forEach(function(e){var k=e.getAttribute("data-ed");if(T[k]!=null)e.textContent=T[k]});
  if(c.fotos){var g=document.getElementById("galeria");g.textContent="";c.fotos.forEach(function(f){
   var fi=document.createElement("figure"),im=document.createElement("img");im.src=f.src;im.alt=f.texto||"";im.loading="lazy";fi.appendChild(im);
   var fc=document.createElement("figcaption");fc.textContent=f.texto||"";fi.appendChild(fc);g.appendChild(fi)})}
@@ -199,9 +216,9 @@ function activarVideos(){document.querySelectorAll(".vid").forEach(function(v){
 activarVideos();
 document.addEventListener("dragstart",function(e){if(e.target.closest("video,img"))e.preventDefault()});
 // novedades y versión (contenido.json se cambia desde la app de Marc)
-fetch("contenido.json",{cache:"no-store"}).then(function(r){return r.json()}).then(function(c){
+fetch("/contenido.json",{cache:"no-store"}).then(function(r){return r.json()}).then(function(c){
  pintarContenido(c);
- if(c.version)document.getElementById("ver").textContent="Versión "+c.version+(c.fecha_version?" · "+c.fecha_version:"");
+ if(c.version)document.getElementById("ver").textContent=(window.lumiT?window.lumiT("version","Versión"):"Versión")+" "+c.version+(c.fecha_version?" · "+c.fecha_version:"");
  var L=document.getElementById("lista");
  (c.noticias||[]).forEach(function(n){
   var a=document.createElement("article");a.className="noticia"+(n.foto?"":" sin-foto");
@@ -214,9 +231,11 @@ fetch("contenido.json",{cache:"no-store"}).then(function(r){return r.json()}).th
  });
 }).catch(function(){});
 </script>
+<script src="/idiomas.js"></script>
+<script src="/rutas.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="cuenta.js"></script>
+<script src="/cuenta.js"></script>
 </body>
 </html>
