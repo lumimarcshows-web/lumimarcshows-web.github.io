@@ -44,8 +44,9 @@
   }
 
   // ---------- entrar / crear cuenta ----------
-  function abrirLogin(crear) {
+  function abrirLogin(crear, aviso) {
     var m = modal(crear ? T("crear_cuenta", "Crear cuenta") : T("iniciar", "Iniciar sesión"));
+    if (aviso) { var av = el("div", "lm-aviso-desc", "🔒 " + aviso); m.caja.appendChild(av) }
     var c = el("form", "lm-form"); c.method = "post"; c.action = "#"; c.autocomplete = "on"; m.caja.appendChild(c);
     var nombre = crear ? campo(c, "text", T("tu_nombre", "Tu nombre o apodo"), "nickname") : null;
     var email = campo(c, "email", T("correo", "Correo electrónico"), "username"); email.name = "email"; email.id = "lm-email";
@@ -63,7 +64,7 @@
     var b = el("button", "btn oro lm-ancho", crear ? T("crear_cuenta", "Crear cuenta") : T("entrar", "Entrar")); b.type = "submit"; c.appendChild(b);
     c.addEventListener("submit", function (e) { e.preventDefault(); b.onclick() });
     var otro = el("button", "lm-link", crear ? T("ya_tengo", "Ya tengo cuenta: iniciar sesión") : T("no_tengo", "¿No tienes cuenta? Crear una"));
-    otro.type = "button"; otro.onclick = function () { m.fondo.remove(); abrirLogin(!crear) }; c.appendChild(otro);
+    otro.type = "button"; otro.onclick = function () { m.fondo.remove(); abrirLogin(!crear, aviso) }; c.appendChild(otro);
     if (!crear) {
       var olv = el("button", "lm-link", T("olvide", "He olvidado la contraseña")); olv.type = "button"; c.appendChild(olv);
       olv.onclick = function () {
@@ -241,14 +242,24 @@
   }
   auth.onAuthStateChanged(function (u) {
     if (!u) { pintar(null); yaSaludado = false; return }
+    if (pendiente) { var pd = pendiente; pendiente = null; setTimeout(function () { contar(pd.tipo); var x = document.createElement("a"); x.href = pd.href; x.download = ""; document.body.appendChild(x); x.click(); x.remove() }, 600) }
     db.collection("admins").doc(u.uid).get().then(function (s) { pintar(u, s.exists) }, function () { pintar(u, false) });
     if (!u.emailVerified && !recienCreada) avisoVerificar(u);
     if (!yaSaludado) { yaSaludado = true; var nueva = recienCreada; recienCreada = false; setTimeout(function () { saludo(auth.currentUser || u, nueva) }, nueva ? 1500 : 800) }
   });
 
-  // ---------- contar descargas (anónimo: solo el tipo, la fecha y el idioma) ----------
+  // ---------- descargas: solo con la sesión iniciada; se cuentan de forma anónima (tipo, fecha, idioma) ----------
+  var pendiente = null;
+  function contar(tipo) { db.collection("descargas").add({ tipo: tipo, fecha: firebase.firestore.FieldValue.serverTimestamp(), idioma: document.documentElement.lang || "es" }).catch(function () {}) }
   document.addEventListener("click", function (e) {
     var a = e.target.closest && e.target.closest("[data-descarga]"); if (!a) return;
-    db.collection("descargas").add({ tipo: a.getAttribute("data-descarga"), fecha: firebase.firestore.FieldValue.serverTimestamp(), idioma: document.documentElement.lang || "es" }).catch(function () {});
+    if (!auth.currentUser) {
+      e.preventDefault();
+      pendiente = { href: a.href, tipo: a.getAttribute("data-descarga") };   // al entrar, se descarga solo
+      document.querySelectorAll(".lm-fondo").forEach(function (f) { f.remove() });
+      abrirLogin(false, T("login_descargar", "Para descargar, inicia sesión. Si no tienes cuenta, créala gratis abajo."));
+      return;
+    }
+    contar(a.getAttribute("data-descarga"));
   });
 })();
