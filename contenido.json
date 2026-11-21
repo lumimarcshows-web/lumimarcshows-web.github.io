@@ -1,9 +1,24 @@
 {
- "version": 24,
+ "version": 25,
  "fecha_version": "21/11/2026",
  "noticias": [
-  {"fecha": "21/11/2026", "titulo": "¡Nace la web de Lumimarc!", "texto": "Ya puedes descargar gratis el programa Fuente Musical DMX. Se actualiza solo cuando hay versión nueva o shows nuevos.", "foto": "fotos/fuente-33.jpg"},
-  {"fecha": "20/11/2026", "titulo": "10 shows hechos a mano", "texto": "People Are Strange, Once Upon a December, Levitating, Rock With You, Time To Say Goodbye… Cada golpe de la música tiene su movimiento.", "foto": "fotos/fuente-26.jpg"},
-  {"fecha": "17/11/2026", "titulo": "Primeras pruebas de la fuente nueva", "texto": "Bombas con MOSFET (altura de 0 a 100 %), placa de servos y luces LED: ¡todo funciona en la mesa de pruebas!", "foto": "fotos/fuente-14.jpg"}
+  {
+   "fecha": "21/11/2026",
+   "titulo": "¡Nace la web de Lumimarc!",
+   "texto": "Ya puedes descargar gratis el programa Fuente Musical DMX. Se actualiza solo cuando hay versión nueva o shows nuevos.",
+   "foto": "fotos/fuente-33.jpg"
+  },
+  {
+   "fecha": "20/11/2026",
+   "titulo": "10 shows hechos a mano",
+   "texto": "People Are Strange, Once Upon a December, Levitating, Rock With You, Time To Say Goodbye… Cada golpe de la música tiene su movimiento.",
+   "foto": "fotos/fuente-26.jpg"
+  },
+  {
+   "fecha": "17/11/2026",
+   "titulo": "Primeras pruebas de la fuente nueva",
+   "texto": "Bombas con MOSFET (altura de 0 a 100 %), placa de servos y luces LED: ¡todo funciona en la mesa de pruebas!",
+   "foto": "fotos/fuente-14.jpg"
+  }
  ]
 }
