@@ -75,24 +75,24 @@ footer{padding:50px 0 40px;color:var(--mut);font-size:14px;text-align:center}
  <video id="intro" src="videos/fuente-nueva.mp4" autoplay muted loop playsinline disablepictureinpicture controlslist="nodownload noremoteplayback" draggable="false"></video>
  <button id="sonido" type="button" aria-label="Activar el sonido" style="position:absolute;z-index:3;right:max(18px,env(safe-area-inset-right));top:18px;width:48px;height:48px;border-radius:50%;border:1px solid rgba(255,255,255,.35);background:rgba(6,11,22,.55);color:#fff;font-size:22px;cursor:pointer;backdrop-filter:blur(6px)">🔇</button>
  <div class="wrap">
-  <span class="etq">NUEVO PROGRAMA DE FUENTES</span>
-  <h1>La fuente nueva</h1>
-  <p>7 chorros de agua que bailan con la música: suben, bajan, se inclinan y se iluminan de colores. Y un programa gratis para crear tus propios espectáculos.</p>
+  <span class="etq" data-ed="etiqueta">NUEVO PROGRAMA DE FUENTES</span>
+  <h1 data-ed="titulo">La fuente nueva</h1>
+  <p data-ed="intro">7 chorros de agua que bailan con la música: suben, bajan, se inclinan y se iluminan de colores. Y un programa gratis para crear tus propios espectáculos.</p>
   <div class="fila"><a class="btn oro" href="#descargar">⬇ Descargar el programa</a><a class="btn vidrio" href="#videos">▶ Ver vídeos</a></div>
  </div>
 </header>
 
 <main>
 <section id="fuente"><div class="wrap">
- <h2>La fuente</h2>
- <p class="sub">Diseñada e impresa en 3D por Marc. Cada chorro tiene su bomba con altura regulable, un servo que lo inclina y un aro de luces LED.</p>
+ <h2 data-ed="fuente_titulo">La fuente</h2>
+ <p class="sub" data-ed="fuente_texto">Diseñada e impresa en 3D por Marc. Cada chorro tiene su bomba con altura regulable, un servo que lo inclina y un aro de luces LED.</p>
  <div class="datos">
   <div class="dato"><b>7</b>chorros de agua</div>
   <div class="dato"><b>0–100 %</b>altura de cada chorro (MOSFET)</div>
   <div class="dato"><b>±20°</b>inclinación con servos</div>
   <div class="dato"><b>DMX</b>se conecta a las luces del escenario</div>
  </div>
- <div class="galeria" style="margin-top:22px">
+ <div class="galeria" id="galeria" style="margin-top:22px">
   <figure><img src="fotos/fuente-33.jpg" alt="La fuente Lumimarc encendida con arcos dorados" loading="lazy"><figcaption>La fuente terminada</figcaption></figure>
   <figure><img src="fotos/fuente-26.jpg" alt="Los 7 chorros rectos con luces" loading="lazy"><figcaption>¡Agua!</figcaption></figure>
   <figure><img src="fotos/fuente-14.jpg" alt="Ménsulas y bombas dentro de la caja" loading="lazy"><figcaption>Ménsulas y bombas</figcaption></figure>
@@ -103,9 +103,9 @@ footer{padding:50px 0 40px;color:var(--mut);font-size:14px;text-align:center}
 </div></section>
 
 <section id="videos"><div class="wrap">
- <h2>Vídeos virtuales</h2>
- <p class="sub">Así se ven algunos espectáculos en el simulador del programa. Cada golpe está coreografiado a mano.</p>
- <div class="videos">
+ <h2 data-ed="videos_titulo">Vídeos virtuales</h2>
+ <p class="sub" data-ed="videos_texto">Así se ven algunos espectáculos en el simulador del programa. Cada golpe está coreografiado a mano.</p>
+ <div class="videos" id="vids">
   <div class="vid"><video src="videos/levitating.mp4" preload="metadata" playsinline loop muted disablepictureinpicture controlslist="nodownload noremoteplayback" draggable="false"></video><button class="play" aria-label="Reproducir">▶</button><span class="tit">Levitating · el cohete</span></div>
   <div class="vid"><video src="videos/within.mp4" preload="metadata" playsinline loop muted disablepictureinpicture controlslist="nodownload noremoteplayback" draggable="false"></video><button class="play" aria-label="Reproducir">▶</button><span class="tit">Within</span></div>
   <div class="vid"><video src="videos/goodbye.mp4" preload="metadata" playsinline loop muted disablepictureinpicture controlslist="nodownload noremoteplayback" draggable="false"></video><button class="play" aria-label="Reproducir">▶</button><span class="tit">Time To Say Goodbye</span></div>
@@ -116,7 +116,7 @@ footer{padding:50px 0 40px;color:var(--mut);font-size:14px;text-align:center}
  <div class="descarga">
   <div>
    <h2>Fuente Musical DMX</h2>
-   <p class="sub" style="margin-bottom:14px">El programa para crear espectáculos de agua, luz y música. Gratis.</p>
+   <p class="sub" data-ed="programa_texto" style="margin-bottom:14px">El programa para crear espectáculos de agua, luz y música. Gratis.</p>
    <ul>
     <li>Línea de tiempo con bloques: alturas, rampas, inclinación y colores</li>
     <li>Simulador 3D para ver el show sin agua</li>
@@ -134,8 +134,8 @@ footer{padding:50px 0 40px;color:var(--mut);font-size:14px;text-align:center}
 </div></section>
 
 <section id="noticias"><div class="wrap">
- <h2>Novedades</h2>
- <p class="sub">Lo último que hemos hecho.</p>
+ <h2 data-ed="novedades_titulo">Novedades</h2>
+ <p class="sub" data-ed="novedades_texto">Lo último que hemos hecho.</p>
  <div class="noticias" id="lista"></div>
 </div></section>
 
@@ -153,15 +153,30 @@ footer{padding:50px 0 40px;color:var(--mut);font-size:14px;text-align:center}
 // sonido del vídeo de inicio (audio propio de Lumimarc)
 var intro=document.getElementById("intro"),son=document.getElementById("sonido");
 son.onclick=function(){intro.muted=!intro.muted;if(!intro.muted){intro.play()}son.textContent=intro.muted?"🔇":"🔊";son.setAttribute("aria-label",intro.muted?"Activar el sonido":"Silenciar")};
+
+// textos, fotos y vídeos editables (contenido.json, se cambia desde la app de Marc)
+function pintarContenido(c){
+ var T=c.textos||{};document.querySelectorAll("[data-ed]").forEach(function(e){var k=e.getAttribute("data-ed");if(T[k]!=null)e.textContent=T[k]});
+ if(c.fotos){var g=document.getElementById("galeria");g.textContent="";c.fotos.forEach(function(f){
+  var fi=document.createElement("figure"),im=document.createElement("img");im.src=f.src;im.alt=f.texto||"";im.loading="lazy";fi.appendChild(im);
+  var fc=document.createElement("figcaption");fc.textContent=f.texto||"";fi.appendChild(fc);g.appendChild(fi)})}
+ if(c.videos){var V=document.getElementById("vids");V.textContent="";c.videos.forEach(function(v){
+  var d=document.createElement("div");d.className="vid";var vi=document.createElement("video");vi.src=v.src;vi.preload="metadata";vi.playsInline=true;vi.loop=true;vi.muted=true;
+  vi.setAttribute("disablepictureinpicture","");vi.setAttribute("controlslist","nodownload noremoteplayback");vi.draggable=false;d.appendChild(vi);
+  var b=document.createElement("button");b.className="play";b.setAttribute("aria-label","Reproducir");b.textContent="▶";d.appendChild(b);
+  var t=document.createElement("span");t.className="tit";t.textContent=v.titulo||"";d.appendChild(t);V.appendChild(d)});activarVideos()}
+}
 // vídeos: se reproducen al pulsar, sin barra de descarga
-document.querySelectorAll(".vid").forEach(function(v){
+function activarVideos(){document.querySelectorAll(".vid").forEach(function(v){
  var vid=v.querySelector("video"),b=v.querySelector(".play");
  function tog(){if(vid.paused){vid.play();v.classList.add("on")}else{vid.pause();v.classList.remove("on")}}
  b.onclick=tog;vid.onclick=tog;
-});
+});}
+activarVideos();
 document.addEventListener("dragstart",function(e){if(e.target.closest("video,img"))e.preventDefault()});
 // novedades y versión (contenido.json se cambia desde la app de Marc)
 fetch("contenido.json",{cache:"no-store"}).then(function(r){return r.json()}).then(function(c){
+ pintarContenido(c);
  if(c.version)document.getElementById("ver").textContent="Versión "+c.version+(c.fecha_version?" · "+c.fecha_version:"");
  var L=document.getElementById("lista");
  (c.noticias||[]).forEach(function(n){

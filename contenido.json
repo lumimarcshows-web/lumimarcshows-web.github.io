@@ -20,5 +20,57 @@
    "texto": "Bombas con MOSFET (altura de 0 a 100 %), placa de servos y luces LED: ¡todo funciona en la mesa de pruebas!",
    "foto": "fotos/fuente-14.jpg"
   }
+ ],
+ "textos": {
+  "etiqueta": "NUEVO PROGRAMA DE FUENTES",
+  "titulo": "La fuente nueva",
+  "intro": "7 chorros de agua que bailan con la música: suben, bajan, se inclinan y se iluminan de colores. Y un programa gratis para crear tus propios espectáculos.",
+  "fuente_titulo": "La fuente",
+  "fuente_texto": "Diseñada e impresa en 3D por Marc. Cada chorro tiene su bomba con altura regulable, un servo que lo inclina y un aro de luces LED.",
+  "videos_titulo": "Vídeos virtuales",
+  "videos_texto": "Así se ven algunos espectáculos en el simulador del programa. Cada golpe está coreografiado a mano.",
+  "programa_texto": "El programa para crear espectáculos de agua, luz y música. Gratis.",
+  "novedades_titulo": "Novedades",
+  "novedades_texto": "Lo último que hemos hecho."
+ },
+ "fotos": [
+  {
+   "src": "fotos/fuente-33.jpg",
+   "texto": "La fuente terminada"
+  },
+  {
+   "src": "fotos/fuente-26.jpg",
+   "texto": "¡Agua!"
+  },
+  {
+   "src": "fotos/fuente-14.jpg",
+   "texto": "Ménsulas y bombas"
+  },
+  {
+   "src": "fotos/fuente-20.jpg",
+   "texto": "La tapa con los servos"
+  },
+  {
+   "src": "fotos/fuente-8.jpg",
+   "texto": "La caja de madera"
+  },
+  {
+   "src": "fotos/fuente-2.jpg",
+   "texto": "Lumimarc Shows presenta…"
+  }
+ ],
+ "videos": [
+  {
+   "src": "videos/levitating.mp4",
+   "titulo": "Levitating · el cohete"
+  },
+  {
+   "src": "videos/within.mp4",
+   "titulo": "Within"
+  },
+  {
+   "src": "videos/goodbye.mp4",
+   "titulo": "Time To Say Goodbye"
+  }
  ]
 }
