@@ -60,6 +60,29 @@ h2{font:700 clamp(26px,4vw,38px) Cinzel,serif;margin:0 0 8px;text-wrap:balance}
 .noticia.sin-foto{grid-template-columns:1fr}.noticia.sin-foto div{padding:14px 16px}
 .zona{display:flex;gap:18px;align-items:center;justify-content:space-between;flex-wrap:wrap;background:var(--card);border:1px dashed #3a4f86;border-radius:18px;padding:22px}
 footer{padding:50px 0 40px;color:var(--mut);font-size:14px;text-align:center}
+
+/* cuentas */
+#cuenta{display:inline-flex}
+.lm-fondo{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:16px}
+.lm-caja{position:relative;background:var(--bg2);border:1px solid var(--line);border-radius:18px;padding:24px;width:min(420px,100%);max-height:90vh;overflow:auto;display:flex;flex-direction:column;gap:10px}
+.lm-caja.lm-grande{width:min(760px,100%)}
+.lm-tit{margin:0 0 4px;font:700 22px Cinzel,serif;color:var(--oro)}
+.lm-x{position:absolute;top:10px;right:12px;border:0;background:none;color:var(--mut);font-size:20px;cursor:pointer}
+.lm-in{padding:11px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--fg);font:16px Nunito,sans-serif}
+.lm-check{display:flex;gap:8px;align-items:flex-start;font-size:14px;color:var(--mut)}
+.lm-aviso{min-height:18px;color:#ffb3b3;font-size:14px}
+.lm-ancho{justify-content:center;width:100%}
+.lm-link{background:none;border:0;color:var(--agua);cursor:pointer;font:600 14px Nunito,sans-serif;padding:2px}
+.lm-rojo{color:#ff8a8a}
+.lm-sub{color:var(--mut);font-size:14px}
+.lm-et{font-weight:800;margin-top:8px}
+.lm-cifras{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.lm-lista{display:flex;flex-direction:column;gap:4px}
+.lm-fila{display:grid;grid-template-columns:1fr 1.4fr auto auto auto;gap:8px;align-items:center;padding:6px 8px;border-radius:8px;background:var(--card);font-size:14px}
+.lm-fila span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lm-e,.lm-f{color:var(--mut)}
+.lm-mini{border:0;border-radius:6px;background:var(--bg);color:var(--fg);cursor:pointer;padding:4px 7px}
+@media (max-width:560px){.lm-fila{grid-template-columns:1fr auto auto}.lm-e,.lm-f{display:none}}
 @media (max-width:760px){.descarga{grid-template-columns:1fr;padding:22px}.noticia{grid-template-columns:1fr}.noticia div{padding:0 14px 14px}nav a.l{display:none}}
 @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
 </style>
@@ -69,6 +92,7 @@ footer{padding:50px 0 40px;color:var(--mut);font-size:14px;text-align:center}
  <a class="logo" href="#">LUMIMARC</a>
  <a class="l" href="#fuente">La fuente</a><a class="l" href="#videos">Vídeos</a><a class="l" href="#noticias">Novedades</a>
  <a class="btn oro peq" href="#descargar">⬇ Descargar</a>
+ <span id="cuenta"></span>
 </div></nav>
 
 <header class="hero">
@@ -125,8 +149,8 @@ footer{padding:50px 0 40px;color:var(--mut);font-size:14px;text-align:center}
    </ul>
   </div>
   <div style="text-align:center;display:flex;flex-direction:column;align-items:center">
-   <a class="btn oro" id="bajar" href="descargas/Fuente%20Musical%20DMX%20para%20Windows.zip" download>⬇ Descargar para Windows</a>
-   <a class="btn vidrio" id="bajarmac" style="margin-top:10px" href="descargas/Fuente%20Musical%20DMX%20para%20Mac.zip" download>🍎 Descargar para Mac</a>
+   <a class="btn oro" id="bajar" data-descarga="windows" href="descargas/Fuente%20Musical%20DMX%20para%20Windows.zip" download>⬇ Descargar para Windows</a>
+   <a class="btn vidrio" id="bajarmac" data-descarga="mac" style="margin-top:10px" href="descargas/Fuente%20Musical%20DMX%20para%20Mac.zip" download>🍎 Descargar para Mac</a>
    <div class="req" id="ver">Última versión</div>
    <div class="req">Windows 10/11 o Mac · necesita Chrome o Edge · la música la pones tú<br>Se descarga un zip: descomprímelo y abre el instalador.<br>En Mac, la primera vez: clic derecho sobre la app → Abrir</div>
   </div>
@@ -147,7 +171,7 @@ footer{padding:50px 0 40px;color:var(--mut);font-size:14px;text-align:center}
 </div></section>
 </main>
 
-<footer><div class="wrap">LUMIMARC · Fuente Musical DMX · hecho por Marc y Claude · Los vídeos y fotos son de Lumimarc.</div></footer>
+<footer><div class="wrap">LUMIMARC · Fuente Musical DMX · hecho por Marc y Claude · Los vídeos y fotos son de Lumimarc. · <a href="privacidad.html">Privacidad</a></div></footer>
 
 <script>
 // sonido del vídeo de inicio (audio propio de Lumimarc)
@@ -190,5 +214,9 @@ fetch("contenido.json",{cache:"no-store"}).then(function(r){return r.json()}).th
  });
 }).catch(function(){});
 </script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="cuenta.js"></script>
 </body>
 </html>
