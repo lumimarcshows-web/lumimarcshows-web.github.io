@@ -151,12 +151,12 @@
   var recienCreada = false;
   function fechaNum(f) { var m = /(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(f || ""); return m ? +m[3] * 10000 + +m[2] * 100 + +m[1] : 0 }
   function hoyNum() { var d = new Date(); return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate() }
-  function saludo(u) {
+  function saludo(u, nueva) {
     var clave = "lumiVisto_" + u.uid, visto = 0; try { visto = +localStorage.getItem(clave) || 0 } catch (e) {}
     var nombre = u.displayName || u.email.split("@")[0];
     fetch("/contenido.json", { cache: "no-store" }).then(function (r) { return r.json() }).then(function (c) {
       var nuevas = (c.noticias || []).filter(function (n) { return fechaNum(n.fecha) > visto });
-      if (recienCreada) {
+      if (nueva) {
         var m = modal("🎉 " + T("bienvenida", "¡Bienvenido/a") + ", " + nombre + "!");
         m.caja.appendChild(el("p", "lm-sub", T("bienvenida_txt", "Tu cuenta de Lumimarc ya está creada. Te hemos enviado un correo para confirmar tu dirección.")));
       } else if (visto && nuevas.length) {
@@ -175,7 +175,7 @@
   auth.onAuthStateChanged(function (u) {
     if (!u) { pintar(null); yaSaludado = false; return }
     db.collection("admins").doc(u.uid).get().then(function (s) { pintar(u, s.exists) }, function () { pintar(u, false) });
-    if (!yaSaludado) { yaSaludado = true; setTimeout(function () { saludo(auth.currentUser || u); recienCreada = false }, recienCreada ? 1500 : 800) }
+    if (!yaSaludado) { yaSaludado = true; var nueva = recienCreada; recienCreada = false; setTimeout(function () { saludo(auth.currentUser || u, nueva) }, nueva ? 1500 : 800) }
   });
 
   // ---------- contar descargas (anónimo: solo el tipo, la fecha y el idioma) ----------
