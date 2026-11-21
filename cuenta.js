@@ -35,10 +35,12 @@
 
   // ---------- entrar / crear cuenta ----------
   function abrirLogin(crear) {
-    var m = modal(crear ? T("crear_cuenta", "Crear cuenta") : T("iniciar", "Iniciar sesión")), c = m.caja;
+    var m = modal(crear ? T("crear_cuenta", "Crear cuenta") : T("iniciar", "Iniciar sesión"));
+    var c = el("form", "lm-form"); c.method = "post"; c.action = "#"; c.autocomplete = "on"; m.caja.appendChild(c);
     var nombre = crear ? campo(c, "text", T("tu_nombre", "Tu nombre o apodo"), "nickname") : null;
-    var email = campo(c, "email", T("correo", "Correo electrónico"), "email");
-    var pass = campo(c, "password", T("contrasena", "Contraseña (mín. 8)"), crear ? "new-password" : "current-password");
+    var email = campo(c, "email", T("correo", "Correo electrónico"), "username"); email.name = "email"; email.id = "lm-email";
+    var pass = campo(c, "password", T("contrasena", "Contraseña (mín. 8)"), crear ? "new-password" : "current-password"); pass.name = "password"; pass.id = "lm-pass"; pass.minLength = 8;
+    if (nombre) { nombre.name = "name"; nombre.id = "lm-nombre" }
     var ok18 = null;
     if (crear) {
       var l = el("label", "lm-check"); ok18 = el("input"); ok18.type = "checkbox"; l.appendChild(ok18);
@@ -46,7 +48,8 @@
       l.appendChild(s); c.appendChild(l);
     }
     var a = aviso(c);
-    var b = el("button", "btn oro lm-ancho", crear ? T("crear_cuenta", "Crear cuenta") : T("entrar", "Entrar")); b.type = "button"; c.appendChild(b);
+    var b = el("button", "btn oro lm-ancho", crear ? T("crear_cuenta", "Crear cuenta") : T("entrar", "Entrar")); b.type = "submit"; c.appendChild(b);
+    c.addEventListener("submit", function (e) { e.preventDefault(); b.onclick() });
     var otro = el("button", "lm-link", crear ? T("ya_tengo", "Ya tengo cuenta: iniciar sesión") : T("no_tengo", "¿No tienes cuenta? Crear una"));
     otro.type = "button"; otro.onclick = function () { m.fondo.remove(); abrirLogin(!crear) }; c.appendChild(otro);
     if (!crear) {
