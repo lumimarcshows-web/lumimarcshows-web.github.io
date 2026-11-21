@@ -103,7 +103,14 @@
   };
   bE.onclick = function () { if (!admin) { barra.hidden = true; return } editando = true; bE.classList.add("on"); bP.classList.remove("on"); bG.hidden = false; document.body.classList.add("lm-editando"); estado.textContent = T("modo_editar", "Toca los textos para cambiarlos."); modoEditar(true) };
   var sinGuardar = false;
-  function cambio() { sinGuardar = true; estado.textContent = "✏️ " + T("cambios", "Cambios sin guardar") }
+  // quita TODO lo de editar (sin sesión, otra cuenta o sin permiso) y vuelve a pintar lo guardado
+  function salir() {
+    var habia = editando || sinGuardar;
+    admin = false; editando = false; sinGuardar = false; barra.hidden = true; bG.hidden = true;
+    bP.classList.add("on"); bE.classList.remove("on"); estado.textContent = "";
+    document.body.classList.remove("lm-editando"); limpiar(); if (habia) cargar();
+  }
+  function cambio() { if (!admin || !editando) { salir(); return } sinGuardar = true; estado.textContent = "✏️ " + T("cambios", "Cambios sin guardar") }
 
   bG.onclick = function () {
     bG.disabled = true; estado.textContent = "⏳ " + T("guardando", "Guardando…");
@@ -134,7 +141,7 @@
   }
   function limpiar() { document.querySelectorAll(".lm-ed").forEach(function (e) { e.remove() }); document.querySelectorAll("[contenteditable]").forEach(function (e) { e.removeAttribute("contenteditable") }) }
   function modoEditar(on) {
-    limpiar(); if (!on || !editando) return;
+    limpiar(); if (!on || !editando || !admin) return;
     // textos tocables (solo en castellano, que es el idioma que se guarda)
     if (!window.lumiLang || window.lumiLang === "es") {
       document.querySelectorAll("[data-ed]").forEach(function (e) {
@@ -217,8 +224,8 @@
 
   // ---------- quién es ----------
   auth.onAuthStateChanged(function (u) {
-    if (!u) { admin = false; barra.hidden = true; if (editando) { editando = false; document.body.classList.remove("lm-editando"); limpiar() } return }
-    db.collection("admins").doc(u.uid).get().then(function (s) { admin = s.exists; barra.hidden = !admin }, function () { barra.hidden = true });
+    if (!u) { salir(); return }
+    db.collection("admins").doc(u.uid).get().then(function (s) { admin = s.exists; if (admin) barra.hidden = false; else salir() }, function () { salir() });
   });
   window.addEventListener("beforeunload", function (e) { if (editando && sinGuardar) { e.preventDefault(); e.returnValue = "" } });
   cargar();
