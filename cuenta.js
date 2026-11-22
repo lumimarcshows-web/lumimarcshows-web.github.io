@@ -188,28 +188,42 @@
     };
   }
 
-  function bajarMarc(tipo, b, txt) {
-    b.disabled = true; b.textContent = "⏳ " + T("preparando", "Preparando…");
-    db.collection("privado").doc("zona").get().then(function (d) {
+  // descarga CIFRADA: la clave está en Firestore (privado/<doc>) y solo la puede leer quien tiene permiso
+  function bajarCifrado(doc, url, nombre) {
+    return db.collection("privado").doc(doc).get().then(function (d) {
       if (!d.exists || !d.data().clave) throw new Error("sin clave");
       var bin = atob(d.data().clave), k = new Uint8Array(bin.length);
       for (var i = 0; i < bin.length; i++) k[i] = bin.charCodeAt(i);
       return Promise.all([crypto.subtle.importKey("raw", k, "AES-GCM", false, ["decrypt"]),
-        fetch("/descargas/privado/" + tipo + ".bin", { cache: "no-store" }).then(function (r) { if (!r.ok) throw new Error("http " + r.status); return r.arrayBuffer() })]);
+        fetch(url, { cache: "no-store" }).then(function (r) { if (!r.ok) throw new Error("http " + r.status); return r.arrayBuffer() })]);
     }).then(function (r) {
       var buf = new Uint8Array(r[1]);
       return crypto.subtle.decrypt({ name: "AES-GCM", iv: buf.slice(0, 12) }, r[0], buf.slice(12));
     }).then(function (zip) {
       var a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([zip], { type: "application/zip" }));
-      a.download = "Fuente Musical DMX (Marc) para " + (tipo === "mac" ? "Mac" : "Windows") + ".zip";
-      document.body.appendChild(a); a.click();
+      a.download = nombre; document.body.appendChild(a); a.click();
       setTimeout(function () { URL.revokeObjectURL(a.href); a.remove() }, 10000);
+    });
+  }
+  function bajarMarc(tipo, b, txt) {
+    b.disabled = true; b.textContent = "⏳ " + T("preparando", "Preparando…");
+    bajarCifrado("zona", "/descargas/privado/" + tipo + ".bin", "Fuente Musical DMX (Marc) para " + (tipo === "mac" ? "Mac" : "Windows") + ".zip").then(function () {
       b.disabled = false; b.textContent = "✅ " + T("descargado", "Descargado");
       setTimeout(function () { b.textContent = txt }, 4000);
     }).catch(function (e) {
       b.disabled = false; b.textContent = "⚠ " + (e && e.code === "permission-denied" ? T("sin_permiso", "Sin permiso") : T("e_otro", "Algo ha fallado."));
       setTimeout(function () { b.textContent = txt }, 4000);
     });
+  }
+  // descargas PÚBLICAS: en la web están cifradas (archivo.zip.bin); con el enlace directo y sin cuenta no sirven para nada
+  function bajarPublica(a) {
+    var url = a.href.split("#")[0].split("?")[0], nombre = decodeURIComponent(url.split("/").pop());
+    var txt = a.textContent; a.textContent = "⏳ " + T("preparando", "Preparando…"); a.style.pointerEvents = "none";
+    bajarCifrado("publica", url + ".bin", nombre).then(function () {
+      a.textContent = "✅ " + T("descargado", "Descargado");
+    }, function (e) {
+      a.textContent = "⚠ " + (e && e.code === "permission-denied" ? T("sin_permiso", "Sin permiso") : T("e_otro", "Algo ha fallado."));
+    }).then(function () { a.style.pointerEvents = ""; setTimeout(function () { a.textContent = txt }, 4000) });
   }
   // ---------- panel de Marc (administrador) ----------
   function panel() {
@@ -337,7 +351,7 @@
   }
   auth.onAuthStateChanged(function (u) {
     if (!u) { pintar(null); yaSaludado = false; return }
-    if (pendiente) { var pd = pendiente; pendiente = null; setTimeout(function () { contar(pd.tipo); var x = document.createElement("a"); x.href = pd.href; x.download = ""; document.body.appendChild(x); x.click(); x.remove() }, 600) }
+    if (pendiente) { var pd = pendiente; pendiente = null; setTimeout(function () { contar(pd.tipo); bajarPublica(pd.a) }, 600) }
     db.collection("admins").doc(u.uid).get().then(function (s) { pintar(u, s.exists) }, function () { pintar(u, false) });
     if (!u.emailVerified && !recienCreada) avisoVerificar(u);
     if (!yaSaludado) { yaSaludado = true; var nueva = recienCreada; recienCreada = false; setTimeout(function () { saludo(auth.currentUser || u, nueva) }, nueva ? 1500 : 800) }
@@ -350,11 +364,13 @@
     var a = e.target.closest && e.target.closest("[data-descarga]"); if (!a) return;
     if (!auth.currentUser) {
       e.preventDefault();
-      pendiente = { href: a.href, tipo: a.getAttribute("data-descarga") };   // al entrar, se descarga solo
+      pendiente = { a: a, tipo: a.getAttribute("data-descarga") };   // al entrar, se descarga solo
       document.querySelectorAll(".lm-fondo").forEach(function (f) { f.remove() });
       abrirLogin(false, T("login_descargar", "Para descargar, inicia sesión. Si no tienes cuenta, créala gratis abajo."));
       return;
     }
+    e.preventDefault();
     contar(a.getAttribute("data-descarga"));
+    bajarPublica(a);
   });
 })();
