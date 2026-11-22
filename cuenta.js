@@ -11,17 +11,39 @@
   };
   var ZONA_MARC = "https://onedrive.live.com/";
   var EJS = { key: "bZ4YcICQyd1tgftt2", servicio: "service_lumimarc", plantilla: "template_lumimarc" };   // no son secretos
+  // reCAPTCHA de Google (claves PÚBLICAS de sitio web; las secretas nunca van en la web)
+  var RC_CASILLA = "6LdL2SwuAAAAAIDaSzC0HuTPm4dGmPXeeDR9zffv";      // casilla «No soy un robot» (después del chorro y en los correos)
+  var RC_APPCHECK = "6Lce2iwuAAAAAGUD1GYzKwGaD5behbfCEmWKFEO9";     // invisible: Firebase App Check
   if (window.emailjs) emailjs.init({ publicKey: EJS.key });
   var BAJA = { es: "Recibes este correo porque te apuntaste a las novedades de lumimarcshows.com. Para dejar de recibirlas, entra en «Mi cuenta» y desmarca la casilla.",
     ca: "Reps aquest correu perquè et vas apuntar a les novetats de lumimarcshows.com. Per deixar de rebre-les, entra a «El meu compte» i desmarca la casella.",
     en: "You get this email because you signed up for lumimarcshows.com news. To stop, go to «My account» and untick the box.",
     fr: "Tu reçois cet e-mail car tu t'es inscrit aux nouveautés de lumimarcshows.com. Pour arrêter, va dans « Mon compte » et décoche la case." };
-  function correo(para, asunto, titulo, texto, boton, ruta, pie) {
+  // tok = respuesta de la casilla de Google: EmailJS la comprueba, así nadie puede mandar correos «de Lumimarc» sin pasarla
+  function correo(para, asunto, titulo, texto, boton, ruta, pie, tok, bcc) {
     if (!window.emailjs) return Promise.reject(new Error("sin emailjs"));
-    return emailjs.send(EJS.servicio, EJS.plantilla, { to_email: para, asunto: asunto, titulo: titulo, texto: texto, boton: boton, ruta: ruta || "/Home", pie: pie || "" });
+    return emailjs.send(EJS.servicio, EJS.plantilla, { to_email: para, bcc: bcc || "", asunto: asunto, titulo: titulo, texto: texto, boton: boton, ruta: ruta || "/Home", pie: pie || "", "g-recaptcha-response": tok || "" });
+  }
+  // ---------- casilla «No soy un robot» de Google ----------
+  var rcCola = null;
+  function cargarRC(fn) {
+    if (window.grecaptcha && grecaptcha.render) return grecaptcha.ready(fn);
+    if (rcCola) { rcCola.push(fn); return } rcCola = [fn];
+    window.lmRcListo = function () { var c = rcCola; rcCola = null; c.forEach(function (f) { f() }) };
+    var sc = document.createElement("script"); sc.async = true;
+    sc.src = "https://www.google.com/recaptcha/api.js?onload=lmRcListo&render=explicit&hl=" + (document.documentElement.lang || "es");
+    document.head.appendChild(sc);
+  }
+  function casillaGoogle(c) {
+    var d = el("div", "lm-rc"), tok = "", id = null; c.appendChild(d);
+    cargarRC(function () { id = grecaptcha.render(d, { sitekey: RC_CASILLA, theme: "dark",
+      callback: function (t) { tok = t }, "expired-callback": function () { tok = "" }, "error-callback": function () { tok = "" } }) });
+    return { tok: function () { return tok }, reset: function () { tok = ""; if (id !== null) try { grecaptcha.reset(id) } catch (e) {} } };
   }            // carpeta privada «Zona de Marc» (entra con su cuenta de Microsoft)
   if (!window.firebase) return;
   firebase.initializeApp(cfg);
+  // App Check: Google comprueba en secreto que quien habla con Firebase es esta web de verdad (y no un robot con un programa)
+  try { if (firebase.appCheck) firebase.appCheck().activate(new firebase.appCheck.ReCaptchaEnterpriseProvider(RC_APPCHECK), true) } catch (e) {}
   var auth = firebase.auth(), db = firebase.firestore();
   auth.languageCode = (document.documentElement.lang || "es");
   var T = window.lumiT || function (k, d) { return d };   // textos traducidos (idiomas.js)
@@ -55,13 +77,14 @@
     lista.forEach(function (col) {
       var bt = el("button", "lm-chorro"); bt.type = "button"; bt.style.setProperty("--c", col[1]); bt.setAttribute("aria-label", col[ix]);
       bt.onclick = function () {
-        if (col === bueno) { hecho = true; caja.classList.add("ok"); txt.textContent = "✅ " + T("eres_persona", "¡Perfecto! Eres una persona.") }
+        if (col === bueno) { if (!hecho) g = casillaGoogle(caja); hecho = true; caja.classList.add("ok"); txt.textContent = "✅ " + T("eres_persona", "¡Perfecto! Ahora marca la casilla de Google.") }
         else { hecho = false; caja.classList.add("mal"); setTimeout(function () { caja.classList.remove("mal") }, 500) }
       };
       fila.appendChild(bt);
     });
     caja.appendChild(fila); c.appendChild(caja);
-    return { ok: function () { return hecho } };
+    var g = null;   // la casilla de Google sale DESPUÉS de tocar el chorro bueno
+    return { ok: function () { return hecho }, google: function () { return g ? g.tok() : "" }, reset: function () { if (g) g.reset() } };
   }
   function abrirLogin(crear, avisoTxt) {
     var m = modal(crear ? T("crear_cuenta", "Crear cuenta") : T("iniciar", "Iniciar sesión"));
@@ -100,6 +123,7 @@
       if (trampa.value) return true;                                    // ha rellenado la trampa invisible
       if (Date.now() - abierto < 2500) { a.textContent = T("muy_rapido", "Demasiado rápido 🤖. Espera un momento y vuelve a pulsar."); return true }
       if (!robot.ok()) { a.textContent = T("e_robot", "Haz la prueba: toca el chorro que se te pide."); return true }
+      if (!robot.google()) { a.textContent = T("e_google", "Ahora marca la casilla «No soy un robot» de Google."); return true }
       if (intentos.n >= 5 && Date.now() - intentos.t < 60000) { a.textContent = T("e_espera", "Demasiados intentos. Espera 1 minuto."); return true }
       return false;
     }
@@ -112,7 +136,7 @@
         if (!n || n.length > 40) { a.textContent = T("e_nombre", "Escribe un nombre (máx. 40 letras)."); return }
         if (pass.value.length < 8) { a.textContent = T("e_debil", "La contraseña debe tener al menos 8 caracteres."); return }
         if (!ok18.checked) { a.textContent = T("e_acepta", "Marca la casilla para continuar."); return }
-        b.disabled = true; recienCreada = true;
+        b.disabled = true; recienCreada = true; var tokBien = robot.google();
         auth.createUserWithEmailAndPassword(email.value.trim(), pass.value).then(function (r) {
           return r.user.updateProfile({ displayName: n }).then(function () {
             return db.collection("usuarios").doc(r.user.uid).set({ nombre: n, email: r.user.email, creado: firebase.firestore.FieldValue.serverTimestamp(), idioma: document.documentElement.lang || "es", avisos: !!document.getElementById("lm-avisos").checked });
@@ -121,12 +145,12 @@
             // correo de bienvenida (en su idioma)
             correo(r.user.email, T("m_bien_asunto", "¡Bienvenido/a a Lumimarc Shows! 🎉"), T("bienvenida", "¡Bienvenido/a") + ", " + n + "!",
               T("m_bien_texto", "Tu cuenta de Lumimarc ya está creada.\n\nAhora puedes descargar el programa Fuente Musical DMX, el kit para construir tu fuente y ver los vídeos de los espectáculos.\n\nTambién te hemos enviado otro correo para confirmar tu dirección: ábrelo y pulsa el enlace."),
-              T("m_bien_boton", "Ir a Lumimarc"), "/Home", "lumimarcshows.com").catch(function () {});
+              T("m_bien_boton", "Ir a Lumimarc"), "/Home", "lumimarcshows.com", tokBien).catch(function () {});
           });
-        }).then(function () { m.fondo.remove(); pintar(auth.currentUser, false) }, function (e) { b.disabled = false; a.textContent = err(e) });
+        }).then(function () { m.fondo.remove(); pintar(auth.currentUser, false) }, function (e) { b.disabled = false; robot.reset(); a.textContent = err(e) });
       } else {
         b.disabled = true;
-        auth.signInWithEmailAndPassword(email.value.trim(), pass.value).then(function () { m.fondo.remove() }, function (e) { b.disabled = false; a.textContent = err(e) });
+        auth.signInWithEmailAndPassword(email.value.trim(), pass.value).then(function () { m.fondo.remove() }, function (e) { b.disabled = false; robot.reset(); a.textContent = err(e) });
       }
     };
     setTimeout(function () { (nombre || email).focus() }, 50);
@@ -225,23 +249,24 @@
       eA.value = "Lumimarc: " + n.titulo; eT.value = n.titulo; eX.value = n.texto || "" }) };
     var fila = el("div", "fila"), prueba = el("button", "btn vidrio peq", "🧪 " + T("prueba", "Enviarme una prueba")), todos = el("button", "btn oro peq", "📣 " + T("enviar_todos", "Enviar a todos los suscritos"));
     prueba.type = todos.type = "button"; fila.appendChild(prueba); fila.appendChild(todos); c.appendChild(fila);
+    var gN = casillaGoogle(c);
     var eS = aviso(c);
-    function datosOk() { if (!eA.value.trim() || !eT.value.trim() || !eX.value.trim()) { eS.textContent = T("m_falta", "Rellena el asunto, el título y el mensaje."); return false } return true }
+    function datosOk() { if (!eA.value.trim() || !eT.value.trim() || !eX.value.trim()) { eS.textContent = T("m_falta", "Rellena el asunto, el título y el mensaje."); return false }
+      if (!gN.tok()) { eS.textContent = T("e_google", "Ahora marca la casilla «No soy un robot» de Google."); return false } return true }
     prueba.onclick = function () { if (!datosOk()) return; eS.textContent = "⏳";
-      correo(auth.currentUser.email, eA.value.trim(), eT.value.trim(), eX.value.trim(), eB.value.trim(), "/Novedades", BAJA[document.documentElement.lang] || BAJA.es)
-        .then(function () { eS.textContent = "✅ " + T("m_prueba_ok", "Prueba enviada a tu correo.") }, function () { eS.textContent = T("e_otro", "Algo ha fallado.") }) };
+      correo(auth.currentUser.email, eA.value.trim(), eT.value.trim(), eX.value.trim(), eB.value.trim(), "/Novedades", BAJA[document.documentElement.lang] || BAJA.es, gN.tok())
+        .then(function () { eS.textContent = "✅ " + T("m_prueba_ok", "Prueba enviada a tu correo.") }, function () { eS.textContent = T("e_otro", "Algo ha fallado.") }).then(gN.reset) };
     todos.onclick = function () { if (!datosOk()) return;
       if (!todos.dataset.ok) { todos.dataset.ok = 1; todos.textContent = T("seguro_enviar", "¿Seguro? Pulsa otra vez para enviar"); return }
       todos.disabled = true; eS.textContent = "⏳";
       db.collection("usuarios").where("avisos", "==", true).get().then(function (q) {
-        var lista = []; q.forEach(function (d) { var x = d.data(); if (x.email) lista.push(x) });
-        var ok = 0, mal = 0, i = 0;
-        (function sig() {
-          if (i >= lista.length) { eS.textContent = "✅ " + ok + " " + T("m_enviados", "correos enviados") + (mal ? " · ⚠️ " + mal : ""); todos.disabled = false; delete todos.dataset.ok; todos.textContent = "📣 " + T("enviar_todos", "Enviar a todos los suscritos"); return }
-          var x = lista[i++]; eS.textContent = "⏳ " + i + " / " + lista.length;
-          correo(x.email, eA.value.trim(), eT.value.trim(), eX.value.trim(), eB.value.trim(), "/Novedades", BAJA[x.idioma] || BAJA.es)
-            .then(function () { ok++ }, function () { mal++ }).then(function () { setTimeout(sig, 1200) });   // despacio, para no saturar
-        })();
+        var lista = []; q.forEach(function (d) { var x = d.data(); if (x.email) lista.push(x.email) });
+        function fin(t) { eS.textContent = t; todos.disabled = false; delete todos.dataset.ok; todos.textContent = "📣 " + T("enviar_todos", "Enviar a todos los suscritos"); gN.reset() }
+        if (!lista.length) { fin(T("nadie", "Todavía no hay nadie.")); return }
+        // UN solo correo: a ti, y a los suscritos en copia oculta (nadie ve los correos de los demás)
+        var pie = [BAJA.es, BAJA.ca, BAJA.en, BAJA.fr].join("\n\n");
+        correo(auth.currentUser.email, eA.value.trim(), eT.value.trim(), eX.value.trim(), eB.value.trim(), "/Novedades", pie, gN.tok(), lista.join(","))
+          .then(function () { fin("✅ " + lista.length + " " + T("m_enviados", "correos enviados")) }, function () { fin(T("e_otro", "Algo ha fallado.")) });
       }, function () { eS.textContent = T("e_otro", "Algo ha fallado."); todos.disabled = false });
     };
     c.appendChild(el("div", "lm-sub", T("m_limite", "Límite gratis: 200 correos al mes. Solo se envía a quien marcó la casilla de novedades.")));
