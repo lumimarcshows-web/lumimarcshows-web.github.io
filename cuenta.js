@@ -164,12 +164,49 @@
     };
   }
 
+  function bajarMarc(tipo, b, txt) {
+    b.disabled = true; b.textContent = "⏳ " + T("preparando", "Preparando…");
+    db.collection("privado").doc("zona").get().then(function (d) {
+      if (!d.exists || !d.data().clave) throw new Error("sin clave");
+      var bin = atob(d.data().clave), k = new Uint8Array(bin.length);
+      for (var i = 0; i < bin.length; i++) k[i] = bin.charCodeAt(i);
+      return Promise.all([crypto.subtle.importKey("raw", k, "AES-GCM", false, ["decrypt"]),
+        fetch("/descargas/privado/" + tipo + ".bin", { cache: "no-store" }).then(function (r) { if (!r.ok) throw new Error("http " + r.status); return r.arrayBuffer() })]);
+    }).then(function (r) {
+      var buf = new Uint8Array(r[1]);
+      return crypto.subtle.decrypt({ name: "AES-GCM", iv: buf.slice(0, 12) }, r[0], buf.slice(12));
+    }).then(function (zip) {
+      var a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([zip], { type: "application/zip" }));
+      a.download = "Fuente Musical DMX (Marc) para " + (tipo === "mac" ? "Mac" : "Windows") + ".zip";
+      document.body.appendChild(a); a.click();
+      setTimeout(function () { URL.revokeObjectURL(a.href); a.remove() }, 10000);
+      b.disabled = false; b.textContent = "✅ " + T("descargado", "Descargado");
+      setTimeout(function () { b.textContent = txt }, 4000);
+    }).catch(function (e) {
+      b.disabled = false; b.textContent = "⚠ " + (e && e.code === "permission-denied" ? T("sin_permiso", "Sin permiso") : T("e_otro", "Algo ha fallado."));
+      setTimeout(function () { b.textContent = txt }, 4000);
+    });
+  }
   // ---------- panel de Marc (administrador) ----------
   function panel() {
     var m = modal("🔐 " + T("panel", "Panel de Marc")), c = m.caja; c.classList.add("lm-grande");
     var zona = el("a", "btn oro lm-ancho", "⬇ " + T("desc_marc", "Descargar mi versión (Zona de Marc en OneDrive)"));
     zona.href = ZONA_MARC; zona.target = "_blank"; zona.rel = "noopener"; c.appendChild(zona);
     c.appendChild(el("div", "lm-sub", T("info_marc", "Tu versión con 📤 Publicar y 🌐 Editar web está en tu OneDrive privado. La música llega sola con OneDrive.")));
+    // descargas de la versión de Marc (cifradas en la web; la clave solo la puede leer el administrador en Firestore)
+    var cd = el("div", "lm-marc-desc");
+    cd.appendChild(el("div", "lm-et", "💻 " + T("prog_marc", "Descargar mi programa (con 📤 Publicar y 🌐 Editar web)")));
+    var ver = el("div", "lm-sub", ""); cd.appendChild(ver);
+    fetch("/contenido.json", { cache: "no-store" }).then(function (r) { return r.json() }).then(function (j) {
+      if (j.version) ver.textContent = T("misma_version", "Versión") + " " + j.version + " · " + T("sincro", "la misma que la pública, se actualiza sola al publicar");
+    }).catch(function () {});
+    var fila = el("div", "lm-marc-bots");
+    [["windows", "⬇ " + T("desc_win", "Descargar para Windows"), "btn oro"], ["mac", "🍎 " + T("desc_mac", "Descargar para Mac"), "btn vidrio"]].forEach(function (x) {
+      var b = el("button", x[2], x[1]); b.type = "button"; b.onclick = function () { bajarMarc(x[0], b, x[1]) }; fila.appendChild(b);
+    });
+    cd.appendChild(fila);
+    cd.appendChild(el("div", "lm-sub", T("nota_marc", "Sin música (llega sola con OneDrive). En Windows, para publicar desde otro ordenador: abre «Preparar publicar.bat» en la carpeta del programa. En Mac todavía no se puede publicar.")));
+    c.appendChild(cd);
     c.appendChild(el("div", "lm-et", "📊 " + T("descargas", "Descargas")));
     var d = el("div", "lm-cifras", "…"); c.appendChild(d);
     var tipos = ["windows", "mac", "kit"], res = {};
