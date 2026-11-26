@@ -7,7 +7,7 @@
 (function () {
   "use strict";
   if (window.OttoControl) return;
-  var SRV = 0xffe0, CHR = 0xffe1;
+  var SRV = "0000ffe0-0000-1000-8000-00805f9b34fb", CHR = "0000ffe1-0000-1000-8000-00805f9b34fb";
   var K = { POWER: 0x45, VOLMAS: 0x46, FUNC: 0x47, ANT: 0x44, PLAY: 0x40, SIG: 0x43, ABAJO: 0x07, VOLMENOS: 0x15, ARRIBA: 0x09,
             N0: 0x16, EQ: 0x19, REPT: 0x0d, N1: 0x0c, N2: 0x18, N3: 0x5e, N4: 0x08, N5: 0x1c, N6: 0x5a, N7: 0x42, N8: 0x52, N9: 0x4a };
   var MOVS = [K.PLAY, K.FUNC, K.ANT, K.SIG, K.ABAJO, K.ARRIBA];
@@ -18,6 +18,7 @@
   function ls(k, v) { try { if (v === undefined) return localStorage.getItem(k) || ""; localStorage.setItem(k, v) } catch (e) { return "" } }
   function h(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e }
   function hex2(n) { return (n < 16 ? "0" : "") + n.toString(16).toUpperCase() }
+  function textoError(e) { if (!e) return "error desconocido"; if (typeof e === "string") return e; return (e.name ? e.name + ": " : "") + (e.message || e.code || JSON.stringify(e)) }
   function espera(ms) { return new Promise(function (r) { setTimeout(r, ms) }) }
 
   // ---------- estilos
@@ -73,12 +74,19 @@
   function conectar() {
     if (!navigator.bluetooth) { aviso("Este navegador no tiene Bluetooth. En iPhone, abre la web con la app «Bluefy»."); return }
     aviso("Buscando… elige «BT05» (o el que se parezca) en la lista.");
-    navigator.bluetooth.requestDevice({ acceptAllDevices: true, optionalServices: [SRV] })
+    var pide;
+    try { pide = navigator.bluetooth.requestDevice({ acceptAllDevices: true, optionalServices: [SRV] }) }
+    catch (e) { pide = Promise.reject(e) }
+    pide.catch(function (e) {                                   // si este navegador no deja «todos», busca los que tienen el servicio de Otto
+      if (e && e.name === "NotFoundError") throw e;
+      log("ℹ️ Pruebo otra forma de buscar… (" + textoError(e) + ")");
+      return navigator.bluetooth.requestDevice({ filters: [{ services: [SRV] }] });
+    })
       .then(function (d) { dev = d; d.addEventListener("gattserverdisconnected", desconectado); ui.con.textContent = "⏳"; return d.gatt.connect() })
       .then(function (g) { return g.getPrimaryService(SRV) }).then(function (s) { return s.getCharacteristic(CHR) })
       .then(function (c) { car = c; c.addEventListener("characteristicvaluechanged", recibir); return c.startNotifications() })
       .then(function () { ui.con.textContent = "🔗 Conectado"; ui.con.classList.add("on"); aviso(""); enviar("V" + (ls("otto_vel") || 5)); log("✅ Conectado a Otto") })
-      .catch(function (e) { ui.con.textContent = "🔗 Conectar"; aviso(e.name === "NotFoundError" ? "No has elegido ningún Bluetooth." : "⚠ " + e.message) });
+      .catch(function (e) { ui.con.textContent = "🔗 Conectar"; aviso(e && e.name === "NotFoundError" ? "No has elegido ningún Bluetooth." : "⚠ " + textoError(e) + " · Mira que el Bluetooth del iPhone esté encendido y que Bluefy tenga permiso (Ajustes → Bluefy → Bluetooth).") });
   }
   function desconectado() { car = null; ui.con.textContent = "🔗 Conectar"; ui.con.classList.remove("on"); est.modo = -1; pintaEstado(); paraIA(); log("🔌 Otto desconectado") }
   setInterval(function () { if (car) enviar("H" + (ls("otto_api") ? "1" : "0")) }, 1000);   // "estoy aquí" (y si hay clave de Gemini)
