@@ -209,7 +209,7 @@
     rec.onspeechstart = function () { if (iaOn && !hablando) luzEscucha(true) };
     rec.onresult = function (e) { var t = e.results[e.results.length - 1][0].transcript.trim(); if (t) oido(t) };
     rec.onend = function () { if (iaOn && !hablando) try { rec.start() } catch (e) {} pintaMic() };
-    rec.onerror = function (e) { log("🎤 " + e.error); if (e.error === "not-allowed" || e.error === "service-not-allowed") { microOff(); ui.iaInfo.textContent = "🎤 El iPhone no deja usar el micrófono aquí (Ajustes → Bluefy → Micrófono). Mientras, escríbele abajo 👇" } };
+    rec.onerror = function (e) { log("🎤 " + e.error); if (e.error === "not-allowed" || e.error === "service-not-allowed") { microOff(); ui.iaInfo.textContent = "🎤 Bluefy no puede usar el micrófono de la web. Usa el 🎤 del TECLADO: toca la caja de abajo 👇" } };
     try { rec.start() } catch (e) { log("⚠ micro: " + textoError(e)) }
     pintaMic();
   }
@@ -352,7 +352,11 @@
     ui.main.insertBefore(ui.ia, ui.main.firstChild);
     ui.escribe = h("div", ""); ui.escribe.style.marginTop = "10px";
     var inp = h("input", "ot-in"); inp.placeholder = "Escribe a " + (est.nombre || "Otto") + "…"; var b = h("button", "ot-b on", "Enviar");
-    b.onclick = function () { if (inp.value.trim()) { pregunta(inp.value.trim()); inp.value = "" } }; ui.escribe.appendChild(inp); ui.escribe.appendChild(b); ui.ia.appendChild(ui.escribe);
+    b.onclick = function () { if (inp.value.trim()) { pregunta(inp.value.trim()); inp.value = ""; inp.blur() } };
+    inp.addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); b.onclick() } });   // «Intro» también envía
+    inp.addEventListener("focus", function () { if (ui.escribe) luzEscucha(true) });
+    inp.addEventListener("blur", function () { setTimeout(function () { if (!iaOn) luzEscucha(false) }, 300) });
+    var pista = h("div", "ot-est", "💡 Truco: toca la caja, pulsa el 🎤 del TECLADO del iPhone, habla, y pulsa Enviar."); ui.escribe.appendChild(pista); ui.escribe.appendChild(inp); ui.escribe.appendChild(b); ui.ia.appendChild(ui.escribe);
     ui.pant = panelPantalla(); ui.pant.hidden = !est.pantalla; ui.main.appendChild(ui.pant);
     var lp = h("div", "ot-p"); lp.appendChild(h("h3", "", "📝 Mensajes")); ui.log = h("div", "ot-log"); ui.log.textContent = textoLog; lp.appendChild(ui.log); ui.main.appendChild(lp);
   }
@@ -368,7 +372,7 @@
     var conf = h("button", "ot-b", "⚙️"); conf.onclick = function () { verConfig = !verConfig; pinta() };
     [salir, ui.con, todos, cambia, conf].forEach(function (b) { top.appendChild(b) });
     raiz.appendChild(top);
-    var ver = h("span", "ot-est", "v9"); ver.style.marginLeft = "auto"; top.appendChild(ver);   // versión del controlador (para saber si el móvil tiene la nueva)
+    var ver = h("span", "ot-est", "v10"); ver.style.marginLeft = "auto"; top.appendChild(ver);   // versión del controlador (para saber si el móvil tiene la nueva)
     ui.est = h("div", "ot-est", "Sin conectar"); raiz.appendChild(ui.est);
     ui.aviso = h("div", "ot-mic"); ui.aviso.hidden = true; ui.aviso.style.background = "#5a3a10"; raiz.appendChild(ui.aviso);
     ui.main = h("div", "ot-main"); raiz.appendChild(ui.main);
