@@ -76,7 +76,7 @@
   }
   function conectar(todos) {
     if (!navigator.bluetooth) { aviso("Este navegador no tiene Bluetooth. En iPhone, abre la web con la app «Bluefy»."); return }
-    aviso(todos ? "Lista de TODOS los Bluetooth: apaga y enciende a Otto y mira cuál aparece." : "Buscando a Otto… (solo salen los que tienen su tipo de Bluetooth)");
+    aviso(todos ? "Lista de TODOS los Bluetooth: busca «OttoLumi» (o «BT05»). Si no lo ves, apaga y enciende a Otto y mira cuál aparece." : "Buscando a Otto… (solo salen los que tienen su tipo de Bluetooth)");
     var pide;
     try { pide = todos ? navigator.bluetooth.requestDevice({ acceptAllDevices: true, optionalServices: SERVICIOS })
                        : navigator.bluetooth.requestDevice({ filters: [{ namePrefix: "Otto" }, { namePrefix: "BT" }, { namePrefix: "MLT" }, { namePrefix: "HM" }, { namePrefix: "JDY" }, { services: [SRV] }], optionalServices: SERVICIOS }) }
@@ -347,13 +347,13 @@
     raiz = h("div", "ot");
     var top = h("div", "ot-top");
     var salir = h("button", "ot-b", "✖ Salir"); salir.onclick = cerrar;
-    ui.con = h("button", "ot-b", car ? "🔗 Conectado" : "🔗 Conectar"); ui.con.onclick = function () { if (!car) conectar(false) };
-    var todos = h("button", "ot-b", "📋 Ver todos"); todos.onclick = function () { if (!car) conectar(true) };
+    ui.con = h("button", "ot-b", car ? "🔗 Conectado" : "🔗 Conectar"); ui.con.onclick = function () { if (!car) conectar(true) };
+    var todos = h("button", "ot-b", "🔎 Solo Otto"); todos.onclick = function () { if (!car) conectar(false) };
     var cambia = h("button", "ot-b", "🔄 Cambiar mando"); cambia.onclick = function () { verConfig = false; vista = vista === "vertical" ? "horizontal" : "vertical"; ls("otto_vista", vista); pinta() };
     var conf = h("button", "ot-b", "⚙️"); conf.onclick = function () { verConfig = !verConfig; pinta() };
     [salir, ui.con, todos, cambia, conf].forEach(function (b) { top.appendChild(b) });
     raiz.appendChild(top);
-    var ver = h("span", "ot-est", "v6"); ver.style.marginLeft = "auto"; top.appendChild(ver);   // versión del controlador (para saber si el móvil tiene la nueva)
+    var ver = h("span", "ot-est", "v7"); ver.style.marginLeft = "auto"; top.appendChild(ver);   // versión del controlador (para saber si el móvil tiene la nueva)
     ui.est = h("div", "ot-est", "Sin conectar"); raiz.appendChild(ui.est);
     ui.aviso = h("div", "ot-mic"); ui.aviso.hidden = true; ui.aviso.style.background = "#5a3a10"; raiz.appendChild(ui.aviso);
     ui.main = h("div", "ot-main"); raiz.appendChild(ui.main);
