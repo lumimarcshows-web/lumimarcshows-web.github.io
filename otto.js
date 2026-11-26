@@ -446,7 +446,9 @@
       (w[0] === "POSTURA" ? posturas : w[0] === "SONIDO" || w[0] === "CANCION" ? sonidos : movs).push(w) });
     var modoVoz = ls("otto_voz") || "gemini";
     if (modoVoz === "gemini" && est.fw < 23 && !avisoFw) { avisoFw = true; log("ℹ️ Para que Otto hable con su propia voz, actualízalo por USB. Mientras, hablo con la voz del móvil.") }
-    var voz = modoVoz === "gemini" && est.fw >= 23 ? vozEnDirecto(o.texto || "", posturas) : Promise.resolve(null);   // v22: la voz se crea y se manda YA
+    var usaPiper = est.fw >= 23 && (modoVoz === "piper" || (modoVoz === "gemini" && Date.now() < +ls("otto_sinvoz")));   // v31
+    var voz = usaPiper ? vozPiperOtto(o.texto || "", posturas) : modoVoz === "gemini" && est.fw >= 23 ? vozEnDirecto(o.texto || "", posturas).then(function (ok) {
+      return ok || (Date.now() < +ls("otto_sinvoz") ? vozPiperOtto(o.texto || "", posturas) : null) }) : Promise.resolve(null);
     var cadena = Promise.resolve();                        // PRIMERO la animación (movimientos, luces, sonidos)...
     movs.concat(sonidos).forEach(function (w) { cadena = cadena.then(function () { if (mio === turno) return accion(w) }) });
     return Promise.all([cadena, voz]).then(function (rr) {   // Otto habla solo en cuanto acaba de moverse
@@ -508,6 +510,57 @@
     }
     return out;
   }
+  // v31: PIPER (gratis, sin límites, funciona en el móvil). La voz se descarga una vez (~60 MB) y queda guardada.
+  var VOCES_PIPER = [["es_ES-davefx-medium", "Davefx (España, chico)"], ["es_ES-sharvard-medium", "Sharvard (España)"], ["es_MX-ald-medium", "Ald (México, chico)"],
+                     ["es_MX-claude-high", "Claude (México)"], ["es_ES-mls_10246-low", "MLS 10246 (España)"], ["es_ES-mls_9972-low", "MLS 9972 (España)"], ["es_ES-carlfm-x_low", "Carlfm (España, ligera)"]];
+  var piperMod = null;
+  function piper() { if (!piperMod) piperMod = import("https://cdn.jsdelivr.net/npm/@diffusionstudio/vits-web@1.0.3/+esm"); return piperMod }
+  function vozPiperId() { return ls("otto_piper") || "es_ES-davefx-medium" }
+  function piperWav(texto, id) {                           // devuelve el WAV (Blob)
+    return piper().then(function (tts) {
+      return tts.predict({ text: texto, voiceId: id || vozPiperId() }, function (pr) { if (pr && pr.total && pr.loaded < pr.total) aviso("⬇️ Descargando la voz… " + Math.round(pr.loaded / pr.total * 100) + " %") })
+        .then(function (b) { aviso(""); return b });
+    });
+  }
+  function wavA24k(blob) {                                 // WAV 16 bits -> muestras a 24000/s (lo que espera el codificador)
+    return blob.arrayBuffer().then(function (buf) {
+      var dv = new DataView(buf), rate = dv.getUint32(24, true), pos = 12, datos = 44, largo = buf.byteLength - 44;
+      while (pos < buf.byteLength - 8) { var id = String.fromCharCode(dv.getUint8(pos), dv.getUint8(pos + 1), dv.getUint8(pos + 2), dv.getUint8(pos + 3)), tam = dv.getUint32(pos + 4, true);
+        if (id === "data") { datos = pos + 8; largo = tam; break } pos += 8 + tam }
+      var n = Math.floor(largo / 2), src = new Int16Array(buf, datos, n), f = rate / 24000, m = Math.floor(n / f), out = new Int16Array(m);
+      for (var i = 0; i < m; i++) { var x = i * f, k = Math.floor(x), t = x - k; out[i] = src[k] + ((src[k + 1] || 0) - src[k]) * t }
+      return out;
+    });
+  }
+  // manda una voz YA HECHA (muestras a 24000/s) a Otto en trozos, y espera a que acabe de hablar
+  function mandaVozHecha(pcm24, texto, posturas) {
+    if (!car) return Promise.resolve(null);
+    var rapido = (ls("otto_vozmodo") || "rapido") === "rapido", mio = turno;
+    var RATE = (rapido ? 5000 : 6000) * 1.08, porSeg = RATE / 2, bytes = codificador(rapido ? 5 : 4)(pcm24), seg = pcm24.length / 24000;
+    var bps = Math.min(6000, +ls("otto_bps") || 1700);
+    var empezar = rapido ? 1200 : Math.round(bytes.length * Math.max(0, 1 - bps / porSeg) * 1.2) + 2500;
+    hablando = true; dichoAhora = texto;
+    enviar("IX");
+    (posturas || []).slice(0, 16).forEach(function (w) { var t = Math.round((+w[1] || 0) * 1000), v = w.slice(2, 7).map(function (x) { return Math.round(+x || 90) }); enviar("I" + t + "," + v.join(",")) });
+    enviar("B0," + Math.round(RATE) + "," + Math.min(empezar, bytes.length));
+    var t0 = Date.now();
+    for (var i = 0; i < bytes.length; i += 2400) { var tr = bytes.slice(i, i + 2400); enviarBin("b" + tr.length, tr) }
+    enviar("b0");
+    return cola.then(function () {
+      var s2 = (Date.now() - t0) / 1000; if (s2 > 1) ls("otto_bps", String(Math.max(200, Math.min(6000, Math.round(bytes.length / s2)))));
+      var falta = seg * 1000 + 3000 - (Date.now() - t0);
+      return new Promise(function (r) { esperaF = r; setTimeout(function () { if (esperaF === r) { esperaF = null; r() } }, Math.max(2500, falta)) });
+    }).then(function () { if (mio === turno) { hablando = false; dichoAhora = "" } return true });
+  }
+  function vozPiperOtto(texto, posturas) {
+    if (!texto || !car) return Promise.resolve(null);
+    var mio = turno, t0 = Date.now();
+    return piperWav(texto).then(wavA24k).then(function (pcm) {
+      if (mio !== turno) return null;
+      log("🗣️ Voz Piper creada en " + ((Date.now() - t0) / 1000).toFixed(1) + " s");
+      return mandaVozHecha(pcm, texto, posturas);
+    }).catch(function (e) { log("⚠ Piper: " + textoError(e)); return null });
+  }
   // v22: VOZ EN DIRECTO. Gemini crea la voz a trozos (streaming) y cada trozo se comprime y se manda a Otto al momento.
   function codificador(paso) {                             // ADPCM que recuerda dónde se quedó entre trozo y trozo (paso 4 = 6000/s, 5 = 4800/s)
     paso = paso || 4;
@@ -554,7 +607,7 @@
       return fetch("https://generativelanguage.googleapis.com/v1beta/models/" + modelos[i] + ":streamGenerateContent?alt=sse", { method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": clave }, body: cuerpo })
         .then(function (r) {
           if (!r.ok || !r.body) { log("⚠ voz " + modelos[i] + ": error " + r.status);
-            if (r.status === 429) { ls("otto_sinvoz", String(Date.now() + 3 * 3600000)); log("ℹ️ Se ha gastado la voz gratis de Gemini: 3 horas con la voz del móvil"); return false }
+            if (r.status === 429) { ls("otto_sinvoz", String(Date.now() + 3 * 3600000)); log("ℹ️ Se ha gastado la voz gratis de Gemini: 3 horas con la voz Piper (gratis)"); return false }
             return prueba(i + 1) }
           var lector = r.body.getReader(), dec = new TextDecoder(), trozo = "", algo = false;
           function lee() {
@@ -611,6 +664,7 @@
   }
 
   // ---------- configuración
+  function configuracionRepinta() { pinta() }
   function configuracion() {
     var p = h("div", "ot-p"); p.appendChild(h("h3", "", "⚙️ Configuración"));
     function campo(et, clave, tipo, ph) { p.appendChild(h("div", "", et)); var i = h("input", "ot-in"); i.type = tipo || "text"; i.placeholder = ph || ""; i.value = ls(clave); p.appendChild(i); return i }
@@ -618,8 +672,21 @@
     var api = campo("🔑 Clave de la API de Gemini (se guarda solo en este móvil):", "otto_api", "password", "AIza…");
     var mod = campo("🧠 Modelo de Gemini (déjalo vacío = automático):", "otto_modelo", "text", "automático");
     p.appendChild(h("div", "", "🔊 ¿Con qué voz contesta la IA?"));
-    var sel = h("select", "ot-in"); [["gemini", "Voz de Gemini por el altavoz de Otto (tarda unos segundos)"], ["movil", "Voz del móvil (la más rápida)"], ["otto", "Voz de sílabas de Otto (experimental)"]].forEach(function (x) { var o = h("option", "", x[1]); o.value = x[0]; sel.appendChild(o) });
+    var sel = h("select", "ot-in"); [["gemini", "Voz de Gemini por Otto (si se gasta, pasa sola a Piper)"], ["piper", "Voz Piper por Otto (gratis y sin límites)"], ["movil", "Voz del móvil (la más rápida)"], ["otto", "Voz de sílabas de Otto (experimental)"]].forEach(function (x) { var o = h("option", "", x[1]); o.value = x[0]; sel.appendChild(o) });
     sel.value = ls("otto_voz") || "gemini"; p.appendChild(sel);
+    p.appendChild(h("div", "", "🎙️ Voz Piper (gratis): toca ▶ para escucharlas y elige la que más te guste:"));
+    var lv = h("div", ""); lv.style.margin = "6px 0 12px";
+    var FRASE = "¡Hola! Soy " + (est.nombre || "Otto") + ", tu robot. ¿Jugamos un rato?";
+    VOCES_PIPER.forEach(function (v) {
+      var f = h("div", "ot-fila"); f.style.maxWidth = "none"; f.style.justifyContent = "flex-start"; f.style.alignItems = "center"; f.style.marginBottom = "6px";
+      var elegir = h("button", "ot-b" + (vozPiperId() === v[0] ? " on" : ""), (vozPiperId() === v[0] ? "✅ " : "") + v[1]); elegir.style.flex = "1 1 160px"; elegir.style.textAlign = "left";
+      elegir.onclick = function () { ls("otto_piper", v[0]); configuracionRepinta() };
+      var oir = h("button", "ot-b", "▶ móvil"); oir.onclick = function () { oir.textContent = "⏳"; piperWav(FRASE, v[0]).then(function (b) { var a = new Audio(URL.createObjectURL(b)); a.play(); oir.textContent = "▶ móvil" }, function (e) { oir.textContent = "⚠"; log("⚠ Piper: " + textoError(e)) }) };
+      var enOtto = h("button", "ot-b", "🤖 Otto"); enOtto.onclick = function () { if (!car) { log("Conecta a Otto primero"); return } enOtto.textContent = "⏳";
+        piperWav(FRASE, v[0]).then(wavA24k).then(function (pcm) { return mandaVozHecha(pcm, FRASE, []) }).then(function () { enOtto.textContent = "🤖 Otto" }, function () { enOtto.textContent = "⚠" }) };
+      f.appendChild(elegir); f.appendChild(oir); f.appendChild(enOtto); lv.appendChild(f);
+    });
+    p.appendChild(lv);
     p.appendChild(h("div", "", "⏱️ La voz de Otto:"));                                   // v30: dos botones con explicación pequeña
     var fm = h("div", "ot-fila"); fm.style.margin = "6px 0 12px"; fm.style.maxWidth = "none"; fm.style.justifyContent = "flex-start";
     [["rapido", "⚡ Empezar rápido", "Habla antes, pero puede haber algún corte."], ["calidad", "🎵 Sin cortes", "Habla seguido, pero tarda más en responder."]].forEach(function (x) {
@@ -690,7 +757,7 @@
     var conf = h("button", "ot-b", "⚙️"); conf.onclick = function () { verConfig = !verConfig; pinta() };
     [salir, ui.con, todos, cambia, conf].forEach(function (b) { top.appendChild(b) });
     raiz.appendChild(top);
-    var ver = h("span", "ot-est", "v30"); ver.style.marginLeft = "auto"; top.appendChild(ver);   // versión del controlador (para saber si el móvil tiene la nueva)
+    var ver = h("span", "ot-est", "v31"); ver.style.marginLeft = "auto"; top.appendChild(ver);   // versión del controlador (para saber si el móvil tiene la nueva)
     ui.est = h("div", "ot-est", "Sin conectar"); raiz.appendChild(ui.est);
     ui.aviso = h("div", "ot-mic"); ui.aviso.hidden = true; ui.aviso.style.background = "#5a3a10"; raiz.appendChild(ui.aviso);
     ui.main = h("div", "ot-main"); raiz.appendChild(ui.main);
