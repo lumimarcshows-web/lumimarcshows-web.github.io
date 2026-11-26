@@ -80,7 +80,7 @@
         if (i >= bytes.length) { ls("otto_pausa", String(fallos ? pausa : Math.max(0, Math.floor(pausa * 0.7)))); return Promise.resolve() }
         if (mioEnvio !== turno) throw new Error("cortado");
         var trozo = bytes.slice(i, i + 20); n++;
-        return escribe(trozo, n % 8 === 0).then(function () { i += 20; return pausa ? espera(pausa) : null }, function (e) {
+        return escribe(trozo, n % ((ls("otto_vozmodo") || "rapido") === "rapido" ? 16 : 8) === 0).then(function () { i += 20; return pausa ? espera(pausa) : null }, function (e) {
           if (/rate limit|too many/i.test(textoError(e)) && fallos < 30) {       // v20: el navegador pide ir más despacio
             fallos++; pausa = Math.min(120, Math.round(pausa * 1.6) + 4); log("🐢 Bluetooth más despacio (" + pausa + " ms)");
             return espera(700);
@@ -509,13 +509,14 @@
     return out;
   }
   // v22: VOZ EN DIRECTO. Gemini crea la voz a trozos (streaming) y cada trozo se comprime y se manda a Otto al momento.
-  function codificador() {                                 // ADPCM que recuerda dónde se quedó entre trozo y trozo
+  function codificador(paso) {                             // ADPCM que recuerda dónde se quedó entre trozo y trozo (paso 4 = 6000/s, 5 = 4800/s)
+    paso = paso || 4;
     var pred = 0, idx = 0, resto = [], max = 6000, impar = false, medio = 0;
     return function (pcm24) {
-      var a = resto.concat(Array.prototype.slice.call(pcm24)), n = Math.floor(a.length / 4), out = [];
-      resto = a.slice(n * 4);
+      var a = resto.concat(Array.prototype.slice.call(pcm24)), n = Math.floor(a.length / paso), out = [];
+      resto = a.slice(n * paso);
       for (var i = 0; i < n; i++) {
-        var m = (a[4 * i] + a[4 * i + 1] + a[4 * i + 2] + a[4 * i + 3]) / 4;
+        var m = 0; for (var q = 0; q < paso; q++) m += a[paso * i + q]; m /= paso;
         if (Math.abs(m) > max) max = Math.abs(m);
         var x = Math.tanh(2.2 * m / max) / Math.tanh(2.2) * 32000, st = IMA_STEP[idx], d = x - pred, code = 0;   // v25: compresor = suena más fuerte
         if (d < 0) { code = 8; d = -d }
@@ -533,9 +534,10 @@
   // abre la voz en Otto, va mandando trozos y la cierra. Devuelve una promesa que se cumple cuando Otto ACABA de hablar (o null si falla)
   function vozEnDirecto(texto, posturas) {
     var clave = ls("otto_api"); if (!clave || !texto || !car) return Promise.resolve(null);
-    var mio = turno, RATE = 6000 * 1.08, porSeg = RATE / 2, cod = codificador(), enviados = 0, t0 = Date.now(), abierta = false;
+    var rapido = (ls("otto_vozmodo") || "rapido") === "rapido";                    // v29: ⚡ empezar rápido / 🎵 sin cortes
+    var mio = turno, RATE = (rapido ? 5000 : 6000) * 1.08, porSeg = RATE / 2, cod = codificador(rapido ? 5 : 4), enviados = 0, t0 = Date.now(), abierta = false;
     var bps = Math.min(6000, +ls("otto_bps") || 1700), segEstim = Math.max(1, texto.length / 13);
-    var empezar = Math.round(segEstim * porSeg * Math.max(0, 1 - bps / porSeg) * 1.25) + 3500;   // v25: más reserva = sin cortes
+    var empezar = rapido ? 1200 : Math.round(segEstim * porSeg * Math.max(0, 1 - bps / porSeg) * 1.25) + 3500;
     function abre() {
       if (abierta) return; abierta = true;
       enviar("IX");
@@ -618,6 +620,9 @@
     p.appendChild(h("div", "", "🔊 ¿Con qué voz contesta la IA?"));
     var sel = h("select", "ot-in"); [["gemini", "Voz de Gemini por el altavoz de Otto (tarda unos segundos)"], ["movil", "Voz del móvil (la más rápida)"], ["otto", "Voz de sílabas de Otto (experimental)"]].forEach(function (x) { var o = h("option", "", x[1]); o.value = x[0]; sel.appendChild(o) });
     sel.value = ls("otto_voz") || "gemini"; p.appendChild(sel);
+    p.appendChild(h("div", "", "⏱️ La voz de Otto:"));
+    var sm = h("select", "ot-in"); [["rapido", "⚡ Empezar rápido (puede hacer alguna pausita)"], ["calidad", "🎵 Sin cortes (espera un poco antes de hablar)"]].forEach(function (x) { var o = h("option", "", x[1]); o.value = x[0]; sm.appendChild(o) });
+    sm.value = ls("otto_vozmodo") || "rapido"; sm.onchange = function () { ls("otto_vozmodo", sm.value) }; p.appendChild(sm);
     var g = h("button", "ot-b on", "💾 Guardar");
     g.onclick = function () {
       ls("otto_api", api.value.trim()); ls("otto_modelo", mod.value.trim()); ls("otto_voz", sel.value);
@@ -677,7 +682,7 @@
     var conf = h("button", "ot-b", "⚙️"); conf.onclick = function () { verConfig = !verConfig; pinta() };
     [salir, ui.con, todos, cambia, conf].forEach(function (b) { top.appendChild(b) });
     raiz.appendChild(top);
-    var ver = h("span", "ot-est", "v28"); ver.style.marginLeft = "auto"; top.appendChild(ver);   // versión del controlador (para saber si el móvil tiene la nueva)
+    var ver = h("span", "ot-est", "v29"); ver.style.marginLeft = "auto"; top.appendChild(ver);   // versión del controlador (para saber si el móvil tiene la nueva)
     ui.est = h("div", "ot-est", "Sin conectar"); raiz.appendChild(ui.est);
     ui.aviso = h("div", "ot-mic"); ui.aviso.hidden = true; ui.aviso.style.background = "#5a3a10"; raiz.appendChild(ui.aviso);
     ui.main = h("div", "ot-main"); raiz.appendChild(ui.main);
