@@ -277,7 +277,7 @@
   function oido(texto) {
     var t = sinAcentos(texto);
     if (hablando && dichoAhora && pareceLoQueDice(t)) return;          // se está oyendo a sí mismo: no hace caso
-    if (/^(otto |oto )?(para|parate|calla|callate|stop|basta|quieto)\b/.test(t.trim())) { cortaTodo(); log("✋ Parado"); return }
+    if (/^(otto |oto )?(para|parate|calla|callate|stop|basta|quieto)\b/.test(t.trim())) { cortaTodo(); if (autoIA) { autoIA = false; log("🎲 Modo auto apagado") } log("✋ Parado"); return }
     if (Date.now() < seguirHasta) { seguirHasta = 0; pregunta(texto); return }
     var ns = nombres(), pos = -1, largo = 0;
     ns.forEach(function (n) { var i = t.indexOf(sinAcentos(n)); if (i >= 0 && (pos < 0 || i < pos)) { pos = i; largo = n.length } });
@@ -288,15 +288,29 @@
   }
   // v13: la distancia se pide sola cada 3 s mientras hay IA (así no hay que esperarla al preguntar)
   var ultimaDist = -1;
+  setInterval(function () { if (car && autoIA && est.modo === 3 && !hablando) { esperaR = function (d) { ultimaDist = d }; enviar("Q") } }, 900);
+  setInterval(function () {
+    if (!autoIA || !car || est.modo !== 3 || iaOcupada || hablando) return;
+    var ahora = Date.now();
+    if (ultimaDist > 0 && ultimaDist < 15 && ahora - ultimoSusto > 9000) {
+      ultimoSusto = ahora; ultimaDist = -1;
+      pregunta("[MODO AUTO] ¡Te acabas de encontrar algo a muy poca distancia delante! Asústate de forma graciosa (luces rojas, un sonido), retrocede (ANDA B 2), gira (ANDA L 2 o ANDA R 2) y di algo cortito como «¡Uy!».", true);
+      return;
+    }
+    if (ahora > proximoAuto) {
+      proximoAuto = ahora + 30000;
+      pregunta("[MODO AUTO] Estás jugando tú solo en modo automático. Decide algo divertido para hacer ahora: andar un poco hacia delante (ANDA F 2 a 4), girar, explorar, saludar, bailar un poquito, una pose, una canción muy corta, cambiar de color… Varía cada vez. Habla poco: muchas veces nada (texto vacío) y a veces una frase muy cortita.", true);
+    }
+  }, 700);
   setInterval(function () { if (car && est.modo === 3) { esperaR = function (d) { ultimaDist = d }; enviar("Q") } }, 3000);
   function distancia() { return Promise.resolve(ultimaDist) }
   var dichoAhora = "";
   function pareceLoQueDice(t) { var a = sinAcentos(dichoAhora).split(/\W+/), b = t.split(/\W+/).filter(Boolean); if (!b.length) return true;
     return b.filter(function (w) { return a.indexOf(w) >= 0 }).length / b.length > 0.6 }
-  var turno = 0, peticion = null;
+  var turno = 0, peticion = null, iaOcupada = false, autoIA = false, proximoAuto = 0, ultimoSusto = 0;
   function vuelveMicroSiHace() { if (microPausado) { microPausado = false; if (iaOn && rec) try { rec.start() } catch (e) {} } }
   function cortaTodo() {                                   // deja de pensar, de hablar y de hacer acciones
-    turno++; if (peticion) try { peticion.abort() } catch (e) {} peticion = null;
+    turno++; iaOcupada = false; if (peticion) try { peticion.abort() } catch (e) {} peticion = null;
     if (window.speechSynthesis) speechSynthesis.cancel();
     enviar("S20"); enviar("W0"); enviar("N"); hablando = false; dichoAhora = ""; seguirHasta = 0;
     if (esperaL) { var l = esperaL; esperaL = null; l() }
@@ -320,6 +334,7 @@
       "SERVO 3 = pie (tobillo) izquierdo, SERVO 4 = pie (tobillo) derecho: inclinan el pie de lado (levantan el borde de dentro o el de fuera; sirve para ponerse de puntillas, levantar una pata o inclinarse). " +
       "Ejemplos (servo1 servo2 servo3 servo4): recto 90 90 90 90 · puntillas favoritas de Marc 90 90 45 135 · puntillas al revés 90 90 135 45 · puntas de los pies hacia dentro 115 65 90 90 · hacia fuera 65 115 90 90 · inclinarte 90 90 70 70 o 110 110. " +
       "Para levantar una pata, primero carga el peso en la otra inclinando los dos pies hacia ese lado (por ejemplo 90 90 70 70) y después inclina más el pie de la pata que levantas. Cambios pequeños (10-30 grados) y movimientos de 300-800 ms: los cambios muy grandes de golpe te pueden tirar al suelo. Si te piden algo imposible para ti (como hacer el pino de verdad), dilo con gracia y haz lo más parecido. " +
+      "\"MODOAUTO ON\" / \"MODOAUTO OFF\": si te piden ponerte en modo automático (jugar solo, explorar, hacer lo que quieras) o salir de él. Al encenderlo di algo como «¡Vale! Me pongo en modo automático» y al apagarlo «¡Vale, ya paro!».\n" +
       "POSES YA HECHAS (por nombre): " + Object.keys(POSES).join(", ") + ". Úsalas con \"POSEHECHA <nombre> <ms>\" (antes de hablar, te quedas así ms milisegundos) o \"POSTURAHECHA <segundo> <nombre> <ms>\" (mientras hablas).\n" +
       "\"POSTURA <segundo> <servo1> <servo2> <servo3> <servo4> <ms>\" mueve tus servos MIENTRAS HABLAS, en el segundo que digas desde que empiezas a hablar (0, 0.5, 1.2…), tardando ms en llegar. Ángulos 20-160, 90 = recto. Las caderas giran la pierna (la punta del pie hacia dentro o hacia fuera); los pies inclinan el pie (subir el borde de dentro o de fuera: así te pones de puntillas, levantas una pata o te inclinas). Pon varias POSTURA seguidas para hacer cualquier movimiento; al acabar de hablar vuelves solo a recto.\n" +
       "\"POSE <caderaIzq> <caderaDer> <pieIzq> <pieDer> <ms>\" igual pero ANTES de hablar, quedándote ms milisegundos.\n" +
@@ -346,9 +361,9 @@
         return listaModelos;
       }).catch(function () { return { texto: [], voz: [] } });
   }
-  function pregunta(texto) {
-    cortaTodo(); var mio = ++turno;                        // v13: lo nuevo corta lo que estaba pensando o diciendo
-    log("🧒 " + texto);
+  function pregunta(texto, interno) {
+    cortaTodo(); var mio = ++turno; iaOcupada = true;     // lo nuevo corta lo que estaba pensando o diciendo
+    log((interno ? "🎲 " : "🧒 ") + texto.slice(0, interno ? 60 : 400));
     var clave = ls("otto_api"); if (!clave) { log("🔑 Falta la clave de Gemini"); return }
     verde = false; enviar("N"); enviar("W1");              // luces: lila que respira = pensando
     var t0 = Date.now();
@@ -397,7 +412,8 @@
       var o; try { o = JSON.parse(raw) } catch (e) { o = { acciones: [], texto: raw } }
       historia.push({ role: "model", parts: [{ text: raw }] });
       enviar("W0"); log("🤖 " + (o.texto || "") + "   (" + ((Date.now() - t0) / 1000).toFixed(1) + " s)"); return responde(o, mio);
-    }).catch(function (e) { if (mio !== turno || /cortado/.test(e.message)) return; enviar("W0"); log("⚠ " + textoError(e)); aviso("⚠ IA: " + textoError(e)); decir("Uy, no he podido pensar.") });
+    }).catch(function (e) { if (mio !== turno || /cortado/.test(e.message)) return; enviar("W0"); log("⚠ " + textoError(e)); aviso("⚠ IA: " + textoError(e)); if (!interno) decir("Uy, no he podido pensar.") })
+      .then(function () { if (mio === turno) { iaOcupada = false; if (autoIA) proximoAuto = Date.now() + 8000 + Math.random() * 12000 } });
   }
   var POSES = { recto: [90, 90, 90, 90], puntillas: [90, 90, 45, 135], puntillas_reves: [90, 90, 135, 45], triste: [110, 70, 20, 160],
     dormir: [100, 80, 60, 120], confuso: [110, 70, 90, 90], pies_dentro: [115, 65, 90, 90], pies_fuera: [65, 115, 90, 90],
@@ -406,6 +422,7 @@
   function responde(o, mio) {
     var acc = (o.acciones || []).slice(0, 10), sonidos = [], movs = [], posturas = [];
     acc.forEach(function (a) { var w = String(a).trim().split(/\s+/);
+      if (w[0] === "MODOAUTO") { autoIA = !/OFF|NO/i.test(w[1] || "ON"); proximoAuto = Date.now() + 4000; log(autoIA ? "🎲 Modo auto ENCENDIDO (di «Otto, para» para pararlo)" : "🎲 Modo auto apagado"); return }
       if (w[0] === "POSEHECHA" && POSES[w[1]]) w = ["POSE"].concat(POSES[w[1]], [w[2] || 1500]);                        // v26: poses ya hechas
       if (w[0] === "POSTURAHECHA" && POSES[w[2]]) w = ["POSTURA", w[1] || 0].concat(POSES[w[2]], [w[3] || 500]);
       (w[0] === "POSTURA" ? posturas : w[0] === "SONIDO" || w[0] === "CANCION" ? sonidos : movs).push(w) });
@@ -642,7 +659,7 @@
     var conf = h("button", "ot-b", "⚙️"); conf.onclick = function () { verConfig = !verConfig; pinta() };
     [salir, ui.con, todos, cambia, conf].forEach(function (b) { top.appendChild(b) });
     raiz.appendChild(top);
-    var ver = h("span", "ot-est", "v26"); ver.style.marginLeft = "auto"; top.appendChild(ver);   // versión del controlador (para saber si el móvil tiene la nueva)
+    var ver = h("span", "ot-est", "v27"); ver.style.marginLeft = "auto"; top.appendChild(ver);   // versión del controlador (para saber si el móvil tiene la nueva)
     ui.est = h("div", "ot-est", "Sin conectar"); raiz.appendChild(ui.est);
     ui.aviso = h("div", "ot-mic"); ui.aviso.hidden = true; ui.aviso.style.background = "#5a3a10"; raiz.appendChild(ui.aviso);
     ui.main = h("div", "ot-main"); raiz.appendChild(ui.main);
