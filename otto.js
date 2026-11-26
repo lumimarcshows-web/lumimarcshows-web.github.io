@@ -18,7 +18,7 @@
   var CARAS = ["😐 Normal", "😊 Feliz", "😢 Triste", "😮 Sorpresa", "😴 Dormido", "😍 Enamorado", "😵 Mareado", "😠 Enfadado", "😉 Guiño"];
   var SONIDOS = ["láser", "sirena", "boing", "robot", "explosión", "R2", "encender", "triste", "ronquido", "victoria", "pedo", "bip", "al azar",
                  "canción funky", "marcha robot", "fiesta", "amor", "hola", "feliz", "magia"];
-  try { if (localStorage.getItem("otto_bps_v19") !== "1") { localStorage.removeItem("otto_bps"); localStorage.setItem("otto_bps_v19", "1") } } catch (e) {}
+  try { if (localStorage.getItem("otto_bps_v21") !== "1") { localStorage.removeItem("otto_bps"); localStorage.removeItem("otto_pausa"); localStorage.setItem("otto_bps_v21", "1") } } catch (e) {}
   try { if (localStorage.getItem("otto_voz_v17") !== "1") { localStorage.setItem("otto_voz", "gemini"); localStorage.setItem("otto_voz_v17", "1") } } catch (e) {}
   function ls(k, v) { try { if (v === undefined) return localStorage.getItem(k) || ""; localStorage.setItem(k, v) } catch (e) { return "" } }
   function h(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e }
@@ -75,12 +75,12 @@
       var c = car; if (!c) { ok = false; return }
       var escribe = function (d, conRespuesta) { if (!car) throw new Error("Bluetooth desconectado");
         return (conRespuesta || !c.writeValueWithoutResponse) ? c.writeValue(d) : c.writeValueWithoutResponse(d) };
-      var i = 0, n = 0, pausa = +ls("otto_pausa") || 12, fallos = 0;
+      var i = 0, n = 0, pausa = ls("otto_pausa") !== "" ? +ls("otto_pausa") : 4, fallos = 0;
       function sigue() {
-        if (i >= bytes.length) { ls("otto_pausa", String(Math.max(6, Math.round(pausa * 0.9)))); return Promise.resolve() }
+        if (i >= bytes.length) { ls("otto_pausa", String(fallos ? pausa : Math.max(0, Math.floor(pausa * 0.7)))); return Promise.resolve() }
         if (mioEnvio !== turno) throw new Error("cortado");
         var trozo = bytes.slice(i, i + 20); n++;
-        return escribe(trozo, n % 12 === 0).then(function () { i += 20; return espera(pausa) }, function (e) {
+        return escribe(trozo, n % 16 === 0).then(function () { i += 20; return pausa ? espera(pausa) : null }, function (e) {
           if (/rate limit|too many/i.test(textoError(e)) && fallos < 30) {       // v20: el navegador pide ir más despacio
             fallos++; pausa = Math.min(120, Math.round(pausa * 1.6) + 4); log("🐢 Bluetooth más despacio (" + pausa + " ms)");
             return espera(700);
@@ -381,8 +381,8 @@
     movs.concat(sonidos).forEach(function (w) { cadena = cadena.then(function () { if (mio === turno) return accion(w) }) });
     return Promise.all([cadena, prep]).then(function (rr) {   // ...y cuando acaba, habla
       if (mio !== turno) return;
-      if (rr[1]) return hablaOtto(rr[1], o.texto || "", posturas);
-      if (modoVoz === "gemini") log("ℹ️ La voz de Gemini no ha funcionado: hablo con la del móvil");
+      if (rr[1] && rr[1] !== "lento") return hablaOtto(rr[1], o.texto || "", posturas);
+      if (modoVoz === "gemini" && rr[1] !== "lento") log("ℹ️ La voz de Gemini no ha funcionado: hablo con la del móvil");
       return decir(o.texto || "", modoVoz === "gemini" ? "movil" : null);
     })
     .then(function () { if (mio === turno && /\?\s*$/.test(o.texto || "")) { seguirHasta = Date.now() + 5000; luzEscucha(true); log("🎤 (5 s para contestar)") } });
@@ -424,9 +424,9 @@
   }
   var IMA_IDX = [-1, -1, -1, -1, 2, 4, 6, 8, -1, -1, -1, -1, 2, 4, 6, 8];
   var IMA_STEP = [7,8,9,10,11,12,13,14,16,17,19,21,23,25,28,31,34,37,41,45,50,55,60,66,73,80,88,97,107,118,130,143,157,173,190,209,230,253,279,307,337,371,408,449,494,544,598,658,724,796,876,963,1060,1166,1282,1411,1552,1707,1878,2066,2272,2499,2749,3024,3327,3660,4026,4428,4871,5358,5894,6484,7132,7845,8630,9493,10442,11487,12635,13899,15289,16818,18500,20350,22385,24623,27086,29794,32767];
-  function aOtto(pcm24) {                                  // 24000 -> 8000 muestras/s, más fuerte, y comprimido a 4 bits (ADPCM)
-    var n = Math.floor(pcm24.length / 3), m = new Float32Array(n), max = 1;
-    for (var i = 0; i < n; i++) { m[i] = (pcm24[3 * i] + pcm24[3 * i + 1] + pcm24[3 * i + 2]) / 3; if (Math.abs(m[i]) > max) max = Math.abs(m[i]) }
+  function aOtto(pcm24) {                                  // v21: 24000 -> 6000 muestras/s, más fuerte, y comprimido a 4 bits (ADPCM)
+    var n = Math.floor(pcm24.length / 4), m = new Float32Array(n), max = 1;
+    for (var i = 0; i < n; i++) { m[i] = (pcm24[4 * i] + pcm24[4 * i + 1] + pcm24[4 * i + 2] + pcm24[4 * i + 3]) / 4; if (Math.abs(m[i]) > max) max = Math.abs(m[i]) }
     var g = 30000 / max, out = new Uint8Array(Math.ceil(n / 2)), pred = 0, idx = 0;
     for (i = 0; i < n; i++) {
       var x = Math.max(-32768, Math.min(32767, m[i] * g)), st = IMA_STEP[idx], d = x - pred, code = 0;
@@ -445,14 +445,14 @@
       if (!pcm || !car) return null;
       var bytes = aOtto(pcm), seg = pcm.length / 24000;
       var bpsAprendido = +ls("otto_bps") || 0;
-      if (bpsAprendido && bytes.length / bpsAprendido - seg > 7) { log("ℹ️ El Bluetooth va lento (" + bpsAprendido + " bytes/s): contesto con la voz del móvil"); return null }
+      if (bpsAprendido && bytes.length / bpsAprendido - seg > 7 && Math.random() > 0.25) { log("ℹ️ El Bluetooth va lento (" + bpsAprendido + " bytes/s): contesto con la voz del móvil"); return "lento" }
       if (bytes.length > 98000) bytes = bytes.slice(0, 98000);
       return { seg: seg, bytes: bytes };
     });
   }
   function hablaOtto(prep, texto, posturas) {              // v18: Otto empieza a hablar SOLO en cuanto le ha llegado bastante
     hablando = true; dichoAhora = texto;
-    var mio = turno, b = prep.bytes, RATE = 8000 * 1.08, porSeg = RATE / 2;   // bytes que gasta por segundo hablando
+    var mio = turno, b = prep.bytes, RATE = 6000 * 1.08, porSeg = RATE / 2;   // bytes que gasta por segundo hablando
     // posturas mientras habla (se mandan antes que la voz)
     enviar("IX");
     (posturas || []).slice(0, 16).forEach(function (w) {
@@ -564,7 +564,7 @@
     var conf = h("button", "ot-b", "⚙️"); conf.onclick = function () { verConfig = !verConfig; pinta() };
     [salir, ui.con, todos, cambia, conf].forEach(function (b) { top.appendChild(b) });
     raiz.appendChild(top);
-    var ver = h("span", "ot-est", "v20"); ver.style.marginLeft = "auto"; top.appendChild(ver);   // versión del controlador (para saber si el móvil tiene la nueva)
+    var ver = h("span", "ot-est", "v21"); ver.style.marginLeft = "auto"; top.appendChild(ver);   // versión del controlador (para saber si el móvil tiene la nueva)
     ui.est = h("div", "ot-est", "Sin conectar"); raiz.appendChild(ui.est);
     ui.aviso = h("div", "ot-mic"); ui.aviso.hidden = true; ui.aviso.style.background = "#5a3a10"; raiz.appendChild(ui.aviso);
     ui.main = h("div", "ot-main"); raiz.appendChild(ui.main);
