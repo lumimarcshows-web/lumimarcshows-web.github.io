@@ -69,17 +69,24 @@
   // v17: manda bytes tal cual (la voz comprimida), lo más rápido que deja el Bluetooth
   function enviarBin(cabecera, bytes) {                   // v19: devuelve los segundos que ha tardado, o -1 si ha fallado
     if (!car) return Promise.resolve(-1);
-    var t0 = 0, ok = true;
+    var t0 = 0, ok = true, mioEnvio = turno;
     cola = cola.then(function () {
       t0 = Date.now();
       var c = car; if (!c) { ok = false; return }
       var escribe = function (d, conRespuesta) { if (!car) throw new Error("Bluetooth desconectado");
         return (conRespuesta || !c.writeValueWithoutResponse) ? c.writeValue(d) : c.writeValueWithoutResponse(d) };
-      var i = 0, n = 0;
+      var i = 0, n = 0, pausa = +ls("otto_pausa") || 12, fallos = 0;
       function sigue() {
-        if (i >= bytes.length) return Promise.resolve();
-        var trozo = bytes.slice(i, i + 20); i += 20; n++;
-        return escribe(trozo, n % 12 === 0).then(function () { return espera(6) }).then(sigue);
+        if (i >= bytes.length) { ls("otto_pausa", String(Math.max(6, Math.round(pausa * 0.9)))); return Promise.resolve() }
+        if (mioEnvio !== turno) throw new Error("cortado");
+        var trozo = bytes.slice(i, i + 20); n++;
+        return escribe(trozo, n % 12 === 0).then(function () { i += 20; return espera(pausa) }, function (e) {
+          if (/rate limit|too many/i.test(textoError(e)) && fallos < 30) {       // v20: el navegador pide ir más despacio
+            fallos++; pausa = Math.min(120, Math.round(pausa * 1.6) + 4); log("🐢 Bluetooth más despacio (" + pausa + " ms)");
+            return espera(700);
+          }
+          throw e;
+        }).then(sigue);
       }
       return escribe(new TextEncoder().encode(cabecera + "\n"), true).then(function () { return espera(30) }).then(sigue);
     }).catch(function (e) { ok = false; log("⚠ voz BT: " + textoError(e)) });
@@ -437,6 +444,8 @@
     return vozGemini(texto).then(function (pcm) {
       if (!pcm || !car) return null;
       var bytes = aOtto(pcm), seg = pcm.length / 24000;
+      var bpsAprendido = +ls("otto_bps") || 0;
+      if (bpsAprendido && bytes.length / bpsAprendido - seg > 7) { log("ℹ️ El Bluetooth va lento (" + bpsAprendido + " bytes/s): contesto con la voz del móvil"); return null }
       if (bytes.length > 98000) bytes = bytes.slice(0, 98000);
       return { seg: seg, bytes: bytes };
     });
@@ -456,7 +465,7 @@
     empezar = Math.max(800, Math.min(b.length, empezar));
     var t0 = Date.now();
     return enviarBin("B" + b.length + "," + Math.round(RATE) + "," + empezar, b).then(function (seg) {
-      if (seg > 1) ls("otto_bps", String(Math.max(500, Math.min(6000, Math.round(b.length / seg)))));
+      if (seg > 1) ls("otto_bps", String(Math.max(200, Math.min(6000, Math.round(b.length / seg)))));
       if (seg < 0) { enviar("S20"); return decir(texto, "movil") }               // ha fallado el Bluetooth: habla el móvil
       if (mio !== turno) return;
       var falta = prep.seg * 1000 + 4000 - (Date.now() - t0);
@@ -555,7 +564,7 @@
     var conf = h("button", "ot-b", "⚙️"); conf.onclick = function () { verConfig = !verConfig; pinta() };
     [salir, ui.con, todos, cambia, conf].forEach(function (b) { top.appendChild(b) });
     raiz.appendChild(top);
-    var ver = h("span", "ot-est", "v19"); ver.style.marginLeft = "auto"; top.appendChild(ver);   // versión del controlador (para saber si el móvil tiene la nueva)
+    var ver = h("span", "ot-est", "v20"); ver.style.marginLeft = "auto"; top.appendChild(ver);   // versión del controlador (para saber si el móvil tiene la nueva)
     ui.est = h("div", "ot-est", "Sin conectar"); raiz.appendChild(ui.est);
     ui.aviso = h("div", "ot-mic"); ui.aviso.hidden = true; ui.aviso.style.background = "#5a3a10"; raiz.appendChild(ui.aviso);
     ui.main = h("div", "ot-main"); raiz.appendChild(ui.main);
