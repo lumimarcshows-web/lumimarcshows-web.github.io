@@ -230,6 +230,14 @@
     var m = modal("🔐 " + T("panel", "Panel de Marc")), c = m.caja; c.classList.add("lm-grande");
     var zona = el("a", "btn oro lm-ancho", "⬇ " + T("desc_marc", "Descargar mi versión (Zona de Marc en OneDrive)"));
     zona.href = ZONA_MARC; zona.target = "_blank"; zona.rel = "noopener"; c.appendChild(zona);
+    // 🤖 controlador de Otto (solo aquí, en el Panel de Marc)
+    var otto = el("button", "btn oro lm-ancho", "🤖 " + T("otto", "Abrir el controlador de Otto")); otto.type = "button";
+    otto.onclick = function () {
+      function va() { m.fondo.remove(); window.OttoControl.abrir() }
+      if (window.OttoControl) return va();
+      var sc = document.createElement("script"); sc.src = "/otto.js?v=20261126a"; sc.onload = va; document.head.appendChild(sc);
+    };
+    c.appendChild(otto);
     c.appendChild(el("div", "lm-sub", T("info_marc", "Tu versión con 📤 Publicar y 🌐 Editar web está en tu OneDrive privado. La música llega sola con OneDrive.")));
     // descargas de la versión de Marc (cifradas en la web; la clave solo la puede leer el administrador en Firestore)
     var cd = el("div", "lm-marc-desc");
