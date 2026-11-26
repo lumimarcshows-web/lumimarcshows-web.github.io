@@ -90,7 +90,7 @@
       .then(function (g) { return buscaCaracteristica(g) })
       .then(function (c) { car = c; c.addEventListener("characteristicvaluechanged", recibir); return c.startNotifications() })
       .then(function () { ui.con.textContent = "🔗 Conectado"; ui.con.classList.add("on"); aviso(""); enviar("V" + (ls("otto_vel") || 5)); log("✅ Conectado a Otto") })
-      .catch(function (e) { ui.con.textContent = "🔗 Conectar"; aviso(e && e.name === "NotFoundError" ? "No has elegido ningún Bluetooth." : "⚠ " + textoError(e) + " · Mira que el Bluetooth del iPhone esté encendido y que Bluefy tenga permiso (Ajustes → Bluefy → Bluetooth).") });
+      .catch(function (e) { ui.con.textContent = "🔗 Conectar"; aviso(e && e.name === "NotFoundError" ? "No has elegido ningún Bluetooth." : "⚠ " + textoError(e) + " · Mira que el Bluetooth esté encendido, que Otto no esté conectado a otro móvil (luz azul parpadeando = libre) y que el navegador tenga permiso de Bluetooth.") });
   }
   // busca en el módulo una "característica" donde se pueda escribir y que avise (notify): es el puerto serie
   function buscaCaracteristica(g) {
@@ -255,9 +255,16 @@
       historia.push({ role: "user", parts: [{ text: texto }] }); historia = historia.slice(-8);
       var cuerpo = JSON.stringify({ systemInstruction: { parts: [{ text: sistema(d) }] }, contents: historia, generationConfig: { responseMimeType: "application/json", temperature: 0.9 } });
       // v11: si un modelo no existe o está ocupado, prueba el siguiente
-      var modelos = [ls("otto_modelo"), "gemini-flash-latest", "gemini-2.5-flash", "gemini-2.0-flash", "gemini-flash-lite-latest"].filter(function (m, i, a) { return m && a.indexOf(m) === i });
+      var modelos = [ls("otto_modelo"), "gemini-flash-latest", "gemini-2.5-flash", "gemini-flash-lite-latest", "gemini-2.5-flash-lite", "gemini-2.0-flash", "gemini-2.0-flash-lite"].filter(function (m, i, a) { return m && a.indexOf(m) === i });
+      var vuelta = 0;
       function prueba(i, ultimoError) {
-        if (i >= modelos.length) throw new Error(ultimoError || "Ningún modelo ha contestado");
+        if (i >= modelos.length) {                         // v12: si TODOS están ocupados, espera un poco y vuelve a probar (hasta 3 vueltas)
+          if (vuelta < 2 && /demand|overloaded|UNAVAILABLE|503|429|quota|Resource/i.test(ultimoError || "")) {
+            vuelta++; log("⏳ Gemini está muy ocupado, vuelvo a probar… (" + vuelta + ")");
+            return espera(2500 * vuelta).then(function () { return prueba(0, ultimoError) });
+          }
+          throw new Error(/demand|overloaded|UNAVAILABLE|503/i.test(ultimoError || "") ? "Gemini está muy ocupado ahora mismo. Prueba otra vez en un minuto." : (ultimoError || "Ningún modelo ha contestado"));
+        }
         return fetch("https://generativelanguage.googleapis.com/v1beta/models/" + encodeURIComponent(modelos[i]) + ":generateContent", {
           method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": clave }, body: cuerpo
         }).then(function (r) { return r.json().then(function (j) {
@@ -384,7 +391,7 @@
     var conf = h("button", "ot-b", "⚙️"); conf.onclick = function () { verConfig = !verConfig; pinta() };
     [salir, ui.con, todos, cambia, conf].forEach(function (b) { top.appendChild(b) });
     raiz.appendChild(top);
-    var ver = h("span", "ot-est", "v11"); ver.style.marginLeft = "auto"; top.appendChild(ver);   // versión del controlador (para saber si el móvil tiene la nueva)
+    var ver = h("span", "ot-est", "v12"); ver.style.marginLeft = "auto"; top.appendChild(ver);   // versión del controlador (para saber si el móvil tiene la nueva)
     ui.est = h("div", "ot-est", "Sin conectar"); raiz.appendChild(ui.est);
     ui.aviso = h("div", "ot-mic"); ui.aviso.hidden = true; ui.aviso.style.background = "#5a3a10"; raiz.appendChild(ui.aviso);
     ui.main = h("div", "ot-main"); raiz.appendChild(ui.main);
