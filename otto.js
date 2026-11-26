@@ -132,7 +132,6 @@
       lista.forEach(function (sv) {
         prom = prom.then(function (ya) { if (ya) return ya;
           return sv.getCharacteristics().then(function (cs) {
-            log("🔎 servicio " + sv.uuid.slice(4, 8) + ": " + cs.map(function (c) { return c.uuid.slice(4, 8) }).join(", "));
             var b = cs.filter(function (c) { return c.properties.notify && (c.properties.write || c.properties.writeWithoutResponse) })[0];
             return b || null;
           }, function () { return null });
@@ -399,13 +398,13 @@
     var acc = (o.acciones || []).slice(0, 10), sonidos = [], movs = [], posturas = [];
     acc.forEach(function (a) { var w = String(a).trim().split(/\s+/); (w[0] === "POSTURA" ? posturas : w[0] === "SONIDO" || w[0] === "CANCION" ? sonidos : movs).push(w) });
     var modoVoz = ls("otto_voz") || "gemini";
-    if (modoVoz === "gemini" && est.fw < 23 && !avisoFw) { avisoFw = true; log("ℹ️ Otto tiene un programa viejo: conéctalo por USB para actualizarlo. Mientras, hablo con la voz del móvil.") }
+    if (modoVoz === "gemini" && est.fw < 23 && !avisoFw) { avisoFw = true; log("ℹ️ Para que Otto hable con su propia voz, actualízalo por USB. Mientras, hablo con la voz del móvil.") }
     var voz = modoVoz === "gemini" && est.fw >= 23 ? vozEnDirecto(o.texto || "", posturas) : Promise.resolve(null);   // v22: la voz se crea y se manda YA
     var cadena = Promise.resolve();                        // PRIMERO la animación (movimientos, luces, sonidos)...
     movs.concat(sonidos).forEach(function (w) { cadena = cadena.then(function () { if (mio === turno) return accion(w) }) });
     return Promise.all([cadena, voz]).then(function (rr) {   // Otto habla solo en cuanto acaba de moverse
       if (mio !== turno || rr[1]) return;
-      if (modoVoz === "gemini") log("ℹ️ La voz de Gemini no ha funcionado: hablo con la del móvil");
+      if (modoVoz === "gemini" && est.fw >= 23 && Date.now() > +ls("otto_sinvoz")) log("ℹ️ La voz de Gemini no ha funcionado: hablo con la del móvil");
       return decir(o.texto || "", modoVoz === "gemini" ? "movil" : null);
     })
     .then(function () { if (mio === turno && /\?\s*$/.test(o.texto || "")) { seguirHasta = Date.now() + 5000; luzEscucha(true); log("🎤 (5 s para contestar)") } });
@@ -631,7 +630,7 @@
     var conf = h("button", "ot-b", "⚙️"); conf.onclick = function () { verConfig = !verConfig; pinta() };
     [salir, ui.con, todos, cambia, conf].forEach(function (b) { top.appendChild(b) });
     raiz.appendChild(top);
-    var ver = h("span", "ot-est", "v23"); ver.style.marginLeft = "auto"; top.appendChild(ver);   // versión del controlador (para saber si el móvil tiene la nueva)
+    var ver = h("span", "ot-est", "v24"); ver.style.marginLeft = "auto"; top.appendChild(ver);   // versión del controlador (para saber si el móvil tiene la nueva)
     ui.est = h("div", "ot-est", "Sin conectar"); raiz.appendChild(ui.est);
     ui.aviso = h("div", "ot-mic"); ui.aviso.hidden = true; ui.aviso.style.background = "#5a3a10"; raiz.appendChild(ui.aviso);
     ui.main = h("div", "ot-main"); raiz.appendChild(ui.main);
