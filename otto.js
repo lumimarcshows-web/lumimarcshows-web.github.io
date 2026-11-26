@@ -71,16 +71,17 @@
       else if (l === "L" && esperaL) { esperaL(); esperaL = null }
     }
   }
-  function conectar() {
+  function conectar(todos) {
     if (!navigator.bluetooth) { aviso("Este navegador no tiene Bluetooth. En iPhone, abre la web con la app «Bluefy»."); return }
-    aviso("Buscando… elige «BT05» (o el que se parezca) en la lista.");
+    aviso(todos ? "Lista de TODOS los Bluetooth: apaga y enciende a Otto y mira cuál aparece." : "Buscando a Otto… (solo salen los que tienen su tipo de Bluetooth)");
     var pide;
-    try { pide = navigator.bluetooth.requestDevice({ acceptAllDevices: true, optionalServices: [SRV] }) }
+    try { pide = todos ? navigator.bluetooth.requestDevice({ acceptAllDevices: true, optionalServices: [SRV] })
+                       : navigator.bluetooth.requestDevice({ filters: [{ services: [SRV] }, { namePrefix: "BT" }, { namePrefix: "MLT" }, { namePrefix: "HM" }, { namePrefix: "JDY" }], optionalServices: [SRV] }) }
     catch (e) { pide = Promise.reject(e) }
     pide.catch(function (e) {                                   // si este navegador no deja «todos», busca los que tienen el servicio de Otto
       if (e && e.name === "NotFoundError") throw e;
       log("ℹ️ Pruebo otra forma de buscar… (" + textoError(e) + ")");
-      return navigator.bluetooth.requestDevice({ filters: [{ services: [SRV] }] });
+      return navigator.bluetooth.requestDevice({ acceptAllDevices: true, optionalServices: [SRV] });
     })
       .then(function (d) { dev = d; d.addEventListener("gattserverdisconnected", desconectado); ui.con.textContent = "⏳"; return d.gatt.connect() })
       .then(function (g) { return g.getPrimaryService(SRV) }).then(function (s) { return s.getCharacteristic(CHR) })
@@ -327,12 +328,13 @@
     raiz = h("div", "ot");
     var top = h("div", "ot-top");
     var salir = h("button", "ot-b", "✖ Salir"); salir.onclick = cerrar;
-    ui.con = h("button", "ot-b", car ? "🔗 Conectado" : "🔗 Conectar"); ui.con.onclick = function () { if (!car) conectar() };
+    ui.con = h("button", "ot-b", car ? "🔗 Conectado" : "🔗 Conectar"); ui.con.onclick = function () { if (!car) conectar(false) };
+    var todos = h("button", "ot-b", "📋 Ver todos"); todos.onclick = function () { if (!car) conectar(true) };
     var cambia = h("button", "ot-b", "🔄 Cambiar mando"); cambia.onclick = function () { verConfig = false; vista = vista === "vertical" ? "horizontal" : "vertical"; ls("otto_vista", vista); pinta() };
     var conf = h("button", "ot-b", "⚙️"); conf.onclick = function () { verConfig = !verConfig; pinta() };
-    [salir, ui.con, cambia, conf].forEach(function (b) { top.appendChild(b) });
+    [salir, ui.con, todos, cambia, conf].forEach(function (b) { top.appendChild(b) });
     raiz.appendChild(top);
-    var ver = h("span", "ot-est", "v4"); ver.style.marginLeft = "auto"; top.appendChild(ver);   // versión del controlador (para saber si el móvil tiene la nueva)
+    var ver = h("span", "ot-est", "v5"); ver.style.marginLeft = "auto"; top.appendChild(ver);   // versión del controlador (para saber si el móvil tiene la nueva)
     ui.est = h("div", "ot-est", "Sin conectar"); raiz.appendChild(ui.est);
     ui.aviso = h("div", "ot-mic"); ui.aviso.hidden = true; ui.aviso.style.background = "#5a3a10"; raiz.appendChild(ui.aviso);
     ui.main = h("div", "ot-main"); raiz.appendChild(ui.main);
