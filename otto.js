@@ -290,16 +290,18 @@
       (est.pantalla ? " y una pantalla de LEDs de 16x8 puntos como boca" : "") + ". Funcionas con una Raspberry Pi Pico y pilas. Ahora mismo el sensor marca " + (d >= 0 && d < 900 ? d + " cm" : "que no hay nada delante") + ". " +
       "Lo que te dicen viene del reconocimiento de voz y puede tener palabras mal escritas o cambiadas por otras que suenan parecido: adivina lo que quería decir el niño y contesta a eso, sin decirle que lo ha dicho mal. " +
       "Hablas en español, frases MUY cortas (1 a 3 frases), alegres y fáciles para un niño. Si te preguntan algo peligroso (enchufes, soldar, pilas que se calientan, herramientas) di que lo haga con un adulto. Nunca pidas datos personales. " +
-      "Tú decides cómo moverte: elige acciones que vayan con lo que dices (si estás contento, baila o salta; si te saludan, saluda; si te piden algo, hazlo). " +
+      "MOVERSE ES OPCIONAL: si solo te preguntan algo o charláis, NO hagas animaciones (lista vacía o, como mucho, alguna POSTURA suave mientras hablas). Haz animaciones solo si te lo piden o si de verdad viene a cuento (por ejemplo, si te dicen que bailes, bailas). " +
+      "Si te piden una postura o un movimiento concreto (levanta una pata, ponte de puntillas, inclínate, «ponte al pino»…), invéntalo tú con POSTURA, con los ángulos que quieras. " +
       "Responde SOLO con JSON: {\"acciones\":[...],\"texto\":\"lo que dices en voz alta\"}. Cada acción es un texto de esta lista:\n" +
       "\"ANDA <dir> <pasos>\" dir: F adelante, B atrás, L girar izquierda, R girar derecha, I de lado izquierda, D de lado derecha, S balancearse, U subir y bajar, J temblar/vibrar, T puntillas, C crusaito, A aletear. pasos 1-6.\n" +
       "\"TRUCO <n>\" 0 puntillas quieto, 1 saludar, 2 moonwalker, 3 crusaito, 4 aleteo feliz, 5 sacudir piernas, 6 baile completo con música, 7 pedo, 8 enamorado, 9 victoria.\n" +
-      "\"POSE <caderaIzq> <caderaDer> <pieIzq> <pieDer> <ms>\" ángulos 30-150 (90 = recto), para quedarte en una postura ms milisegundos.\n" +
+      "\"POSTURA <segundo> <caderaIzq> <caderaDer> <pieIzq> <pieDer> <ms>\" mueve tus servos MIENTRAS HABLAS, en el segundo que digas desde que empiezas a hablar (0, 0.5, 1.2…), tardando ms en llegar. Ángulos 20-160, 90 = recto. Las caderas giran la pierna (la punta del pie hacia dentro o hacia fuera); los pies inclinan el pie (subir el borde de dentro o de fuera: así te pones de puntillas, levantas una pata o te inclinas). Pon varias POSTURA seguidas para hacer cualquier movimiento; al acabar de hablar vuelves solo a recto.\n" +
+      "\"POSE <caderaIzq> <caderaDer> <pieIzq> <pieDer> <ms>\" igual pero ANTES de hablar, quedándote ms milisegundos.\n" +
       "\"COLOR <RRGGBB>\" pone tus luces de un color; \"SINCOLOR\" vuelve al color normal.\n" +
       "\"SONIDO <n>\" " + SONIDOS.map(function (s, i) { return i + " " + s }).join(", ") + ".\n" +
       "\"CANCION <f:ms,f:ms,...>\" una canción INVENTADA por ti (frecuencias en Hz, 0 = silencio, hasta 60 notas). Nunca copies canciones famosas.\n" +
       (est.pantalla ? "\"CARA <n>\" " + CARAS.map(function (c, i) { return i + " " + c.slice(3) }).join(", ") + ".\n\"DIBUJO <32 cifras hex>\" dibujo de 16x8 puntos: 16 bytes, los 8 primeros son la mitad izquierda y los 8 siguientes la derecha, un byte por fila de arriba a abajo, el bit más alto es el punto de la izquierda.\n" : "") +
-      "Pon como mucho 6 acciones. Si no hace falta moverse, la lista puede estar vacía.";
+      "Pon como mucho 10 acciones (las POSTURA cuentan). Si no hace falta moverse, la lista vacía: [].";
   }
   function pregunta(texto) {
     cortaTodo(); var mio = ++turno;                        // v13: lo nuevo corta lo que estaba pensando o diciendo
@@ -351,15 +353,15 @@
     }).catch(function (e) { if (mio !== turno || /cortado/.test(e.message)) return; enviar("W0"); log("⚠ " + textoError(e)); aviso("⚠ IA: " + textoError(e)); decir("Uy, no he podido pensar.") });
   }
   function responde(o, mio) {
-    var acc = (o.acciones || []).slice(0, 6), sonidos = [], movs = [];
-    acc.forEach(function (a) { var w = String(a).trim().split(/\s+/); (w[0] === "SONIDO" || w[0] === "CANCION" ? sonidos : movs).push(w) });
+    var acc = (o.acciones || []).slice(0, 10), sonidos = [], movs = [], posturas = [];
+    acc.forEach(function (a) { var w = String(a).trim().split(/\s+/); (w[0] === "POSTURA" ? posturas : w[0] === "SONIDO" || w[0] === "CANCION" ? sonidos : movs).push(w) });
     var modoVoz = ls("otto_voz") || "gemini";
-    var prep = modoVoz === "gemini" ? preparaVozOtto(o.texto || "") : Promise.resolve(null);   // v17: la voz se prepara y se manda MIENTRAS anima
+    var prep = modoVoz === "gemini" ? preparaVozOtto(o.texto || "") : Promise.resolve(null);   // la voz se prepara (Gemini) mientras anima
     var cadena = Promise.resolve();                        // PRIMERO la animación (movimientos, luces, sonidos)...
     movs.concat(sonidos).forEach(function (w) { cadena = cadena.then(function () { if (mio === turno) return accion(w) }) });
     return Promise.all([cadena, prep]).then(function (rr) {   // ...y cuando acaba, habla
       if (mio !== turno) return;
-      if (rr[1]) return hablaOtto(rr[1], o.texto || "");
+      if (rr[1]) return hablaOtto(rr[1], o.texto || "", posturas);
       if (modoVoz === "gemini") log("ℹ️ La voz de Gemini no ha funcionado: hablo con la del móvil");
       return decir(o.texto || "", modoVoz === "gemini" ? "movil" : null);
     })
@@ -423,17 +425,28 @@
       if (!pcm || !car) return null;
       var bytes = aOtto(pcm), seg = pcm.length / 24000;
       if (bytes.length > 98000) bytes = bytes.slice(0, 98000);
-      var envio = enviarBin("B" + bytes.length + "," + Math.round(8000 * 1.08), bytes);   // 1,08 = un poquito más agudo (robotito)
-      return { seg: seg, envio: envio };
+      return { seg: seg, bytes: bytes };
     });
   }
-  function hablaOtto(prep, texto) {                         // espera a que acabe de hablar (Otto dice «F»)
+  function hablaOtto(prep, texto, posturas) {              // v18: Otto empieza a hablar SOLO en cuanto le ha llegado bastante
     hablando = true; dichoAhora = texto;
-    var mio = turno;
-    return prep.envio.then(function () {
+    var mio = turno, b = prep.bytes, RATE = 8000 * 1.08, porSeg = RATE / 2;   // bytes que gasta por segundo hablando
+    // posturas mientras habla (se mandan antes que la voz)
+    enviar("IX");
+    (posturas || []).slice(0, 16).forEach(function (w) {
+      var t = Math.round((+w[1] || 0) * 1000), v = w.slice(2, 7).map(function (x) { return Math.round(+x || 90) });
+      enviar("I" + t + "," + v.join(","));
+    });
+    // ¿con cuántos bytes puede empezar sin quedarse sin voz? (según lo rápido que fue el Bluetooth la última vez)
+    var bps = +ls("otto_bps") || 2500;
+    var empezar = bps >= porSeg ? 1500 : Math.ceil(b.length * (1 - bps / porSeg)) + 1500;
+    empezar = Math.max(800, Math.min(b.length, empezar));
+    var t0 = Date.now();
+    return enviarBin("B" + b.length + "," + Math.round(RATE) + "," + empezar, b).then(function (seg) {
+      if (seg > 0.3) ls("otto_bps", String(Math.round(b.length / seg)));
       if (mio !== turno) return;
-      enviar("O");
-      return new Promise(function (r) { esperaF = r; setTimeout(function () { if (esperaF === r) { esperaF = null; r() } }, prep.seg * 1000 + 6000) });
+      var falta = prep.seg * 1000 + 4000 - (Date.now() - t0);
+      return new Promise(function (r) { esperaF = r; setTimeout(function () { if (esperaF === r) { esperaF = null; r() } }, Math.max(3000, falta)) });
     }).then(function () { if (mio === turno) { hablando = false; dichoAhora = "" } });
   }
   // hablar: con la voz de Otto (por su altavoz) o con la del móvil
@@ -528,7 +541,7 @@
     var conf = h("button", "ot-b", "⚙️"); conf.onclick = function () { verConfig = !verConfig; pinta() };
     [salir, ui.con, todos, cambia, conf].forEach(function (b) { top.appendChild(b) });
     raiz.appendChild(top);
-    var ver = h("span", "ot-est", "v17"); ver.style.marginLeft = "auto"; top.appendChild(ver);   // versión del controlador (para saber si el móvil tiene la nueva)
+    var ver = h("span", "ot-est", "v18"); ver.style.marginLeft = "auto"; top.appendChild(ver);   // versión del controlador (para saber si el móvil tiene la nueva)
     ui.est = h("div", "ot-est", "Sin conectar"); raiz.appendChild(ui.est);
     ui.aviso = h("div", "ot-mic"); ui.aviso.hidden = true; ui.aviso.style.background = "#5a3a10"; raiz.appendChild(ui.aviso);
     ui.main = h("div", "ot-main"); raiz.appendChild(ui.main);
