@@ -253,18 +253,30 @@
     verde = false; enviar("N"); enviar("W1");              // luces: lila que respira = pensando
     distancia().then(function (d) {
       historia.push({ role: "user", parts: [{ text: texto }] }); historia = historia.slice(-8);
-      var modelo = ls("otto_modelo") || "gemini-2.5-flash";
-      return fetch("https://generativelanguage.googleapis.com/v1beta/models/" + encodeURIComponent(modelo) + ":generateContent", {
-        method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": clave },
-        body: JSON.stringify({ systemInstruction: { parts: [{ text: sistema(d) }] }, contents: historia, generationConfig: { responseMimeType: "application/json", temperature: 0.9 } })
-      });
-    }).then(function (r) { return r.json() }).then(function (j) {
+      var cuerpo = JSON.stringify({ systemInstruction: { parts: [{ text: sistema(d) }] }, contents: historia, generationConfig: { responseMimeType: "application/json", temperature: 0.9 } });
+      // v11: si un modelo no existe o está ocupado, prueba el siguiente
+      var modelos = [ls("otto_modelo"), "gemini-flash-latest", "gemini-2.5-flash", "gemini-2.0-flash", "gemini-flash-lite-latest"].filter(function (m, i, a) { return m && a.indexOf(m) === i });
+      function prueba(i, ultimoError) {
+        if (i >= modelos.length) throw new Error(ultimoError || "Ningún modelo ha contestado");
+        return fetch("https://generativelanguage.googleapis.com/v1beta/models/" + encodeURIComponent(modelos[i]) + ":generateContent", {
+          method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": clave }, body: cuerpo
+        }).then(function (r) { return r.json().then(function (j) {
+          if (r.ok) { if (i > 0) log("ℹ️ Uso el modelo " + modelos[i]); return j }
+          var msg = (j.error && j.error.message) || ("error " + r.status);
+          log("⚠ " + modelos[i] + ": " + msg.slice(0, 160));
+          if (r.status === 400 && /API key|api_key|API_KEY/.test(msg)) throw new Error("La clave de Gemini no es válida. Revísala en ⚙️ Configuración.");
+          if (r.status === 403) throw new Error("La clave no tiene permiso para Gemini (" + msg.slice(0, 80) + ")");
+          return prueba(i + 1, msg);
+        }) }, function (e) { log("⚠ red: " + textoError(e)); return prueba(i + 1, "Sin conexión a internet") });
+      }
+      return prueba(0);
+    }).then(function (j) {
       var raw = j && j.candidates && j.candidates[0] && j.candidates[0].content.parts.map(function (p) { return p.text || "" }).join("");
       if (!raw) throw new Error((j.error && j.error.message) || "Sin respuesta");
       var o; try { o = JSON.parse(raw) } catch (e) { o = { acciones: [], texto: raw } }
       historia.push({ role: "model", parts: [{ text: raw }] });
       enviar("W0"); log("🤖 " + (o.texto || "")); return responde(o);
-    }).catch(function (e) { enviar("W0"); log("⚠ " + e.message); decir("Uy, no he podido pensar. ¿Hay internet?") });
+    }).catch(function (e) { enviar("W0"); log("⚠ " + textoError(e)); aviso("⚠ IA: " + textoError(e)); decir("Uy, no he podido pensar.") });
   }
   function responde(o) {
     var acc = (o.acciones || []).slice(0, 6), sonidos = [], movs = [];
@@ -310,7 +322,7 @@
     function campo(et, clave, tipo, ph) { p.appendChild(h("div", "", et)); var i = h("input", "ot-in"); i.type = tipo || "text"; i.placeholder = ph || ""; i.value = ls(clave); p.appendChild(i); return i }
     var nom = campo("🤖 Nombre del robot (lo dice al encenderse):", "otto_nombre", "text", "Otto");
     var api = campo("🔑 Clave de la API de Gemini (se guarda solo en este móvil):", "otto_api", "password", "AIza…");
-    var mod = campo("🧠 Modelo de Gemini:", "otto_modelo", "text", "gemini-2.5-flash");
+    var mod = campo("🧠 Modelo de Gemini (déjalo vacío = automático):", "otto_modelo", "text", "automático");
     p.appendChild(h("div", "", "🔊 ¿Con qué voz contesta la IA?"));
     var sel = h("select", "ot-in"); [["otto", "Voz de Otto (por su altavoz)"], ["movil", "Voz del móvil"]].forEach(function (x) { var o = h("option", "", x[1]); o.value = x[0]; sel.appendChild(o) });
     sel.value = ls("otto_voz") || "otto"; p.appendChild(sel);
@@ -372,7 +384,7 @@
     var conf = h("button", "ot-b", "⚙️"); conf.onclick = function () { verConfig = !verConfig; pinta() };
     [salir, ui.con, todos, cambia, conf].forEach(function (b) { top.appendChild(b) });
     raiz.appendChild(top);
-    var ver = h("span", "ot-est", "v10"); ver.style.marginLeft = "auto"; top.appendChild(ver);   // versión del controlador (para saber si el móvil tiene la nueva)
+    var ver = h("span", "ot-est", "v11"); ver.style.marginLeft = "auto"; top.appendChild(ver);   // versión del controlador (para saber si el móvil tiene la nueva)
     ui.est = h("div", "ot-est", "Sin conectar"); raiz.appendChild(ui.est);
     ui.aviso = h("div", "ot-mic"); ui.aviso.hidden = true; ui.aviso.style.background = "#5a3a10"; raiz.appendChild(ui.aviso);
     ui.main = h("div", "ot-main"); raiz.appendChild(ui.main);

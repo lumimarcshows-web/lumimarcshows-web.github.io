@@ -235,7 +235,7 @@
     otto.onclick = function () {
       function va() { m.fondo.remove(); window.OttoControl.abrir() }
       if (window.OttoControl) return va();
-      var sc = document.createElement("script"); sc.src = "/otto.js?v=20261126j"; sc.onload = va; document.head.appendChild(sc);
+      var sc = document.createElement("script"); sc.src = "/otto.js?v=20261126k"; sc.onload = va; document.head.appendChild(sc);
     };
     c.appendChild(otto);
     c.appendChild(el("div", "lm-sub", T("info_marc", "Tu versión con 📤 Publicar y 🌐 Editar web está en tu OneDrive privado. La música llega sola con OneDrive.")));
