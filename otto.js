@@ -192,21 +192,28 @@
   var rec = null, iaOn = false, hablando = false, seguirHasta = 0, historia = [], zEnviada = false;
   function nombres() { var n = (est.nombre || ls("otto_nombre") || "Otto").toLowerCase(); return [n, "otto", "oto", "hoto", "auto"] }
   function sinAcentos(t) { return t.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "") }
-  function empiezaIA() {
-    if (iaOn || !car) return;
-    if (!ls("otto_api")) { log("🔑 Falta la clave de Gemini (⚙️ Configuración)"); return }
+  function empiezaIA() {                                 // el móvil está en modo IA: enseña el panel (el micro se enciende con el botón)
+    if (ui.ia) ui.ia.hidden = false;
+    if (!ls("otto_api")) { if (ui.iaInfo) ui.iaInfo.textContent = "🔑 Falta la clave de Gemini: ⚙️ Configuración → pégala → Guardar."; return }
+    if (ui.iaInfo && !iaOn) ui.iaInfo.textContent = "Pulsa «🎤 Activar micrófono» y di «" + (est.nombre || "Otto") + "…». O escríbele abajo.";
+    enviarZ();
+  }
+  function microOn() {                                   // se llama al PULSAR el botón (el iPhone solo deja el micro así)
+    if (iaOn) return;
+    if (!ls("otto_api")) { empiezaIA(); return }
     var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    iaOn = true; ui.mic.hidden = false;
-    if (!SR) { ui.mic.textContent = "🎤 Este navegador no deja escuchar. Escribe abajo 👇"; ui.escribe.hidden = false; enviarZ(); return }
+    if (!SR) { ui.iaInfo.textContent = "🎤 Este navegador no deja escuchar con el micrófono. Escríbele abajo 👇"; return }
+    iaOn = true; ui.mic.hidden = false; ui.bMic.textContent = "🔇 Apagar micrófono";
     rec = new SR(); rec.lang = "es-ES"; rec.continuous = true; rec.interimResults = false;
     rec.onresult = function (e) { var t = e.results[e.results.length - 1][0].transcript.trim(); if (t) oido(t) };
     rec.onend = function () { if (iaOn && !hablando) try { rec.start() } catch (e) {} pintaMic() };
-    rec.onerror = function (e) { if (e.error === "not-allowed") { ui.mic.textContent = "🎤 Da permiso al micrófono"; ui.escribe.hidden = false } };
-    try { rec.start() } catch (e) {}
-    pintaMic(); enviarZ();
+    rec.onerror = function (e) { log("🎤 " + e.error); if (e.error === "not-allowed" || e.error === "service-not-allowed") { microOff(); ui.iaInfo.textContent = "🎤 El iPhone no deja usar el micrófono aquí (Ajustes → Bluefy → Micrófono). Mientras, escríbele abajo 👇" } };
+    try { rec.start() } catch (e) { log("⚠ micro: " + textoError(e)) }
+    pintaMic();
   }
   function enviarZ() { if (!zEnviada) { zEnviada = true; setTimeout(function () { enviar("Z") }, 2500) } }
-  function paraIA() { iaOn = false; zEnviada = false; if (rec) try { rec.onend = null; rec.stop() } catch (e) {} rec = null; if (ui.mic) ui.mic.hidden = true }
+  function paraIA() { microOff(); zEnviada = false; if (ui.ia) ui.ia.hidden = true }
+  function microOff() { iaOn = false; if (rec) try { rec.onend = null; rec.stop() } catch (e) {} rec = null; if (ui.mic) ui.mic.hidden = true; if (ui.bMic) ui.bMic.textContent = "🎤 Activar micrófono" }
   function pintaMic() { if (!ui.mic) return; ui.mic.className = "ot-mic" + (Date.now() < seguirHasta ? " oye" : ""); ui.mic.textContent = hablando ? "🔊 " + (est.nombre || "Otto") + " está hablando…" : Date.now() < seguirHasta ? "🎤 Te escucho…" : "🎤 Di «" + (est.nombre || "Otto") + "» y lo que quieras" }
   setInterval(pintaMic, 500);
   function oido(texto) {
@@ -318,7 +325,8 @@
 
   // ---------- pantalla principal
   var raiz = null, verConfig = false;
-  function log(t) { if (!ui.log) return; ui.log.textContent = (t + "\n" + ui.log.textContent).slice(0, 3000) }
+  var textoLog = "";
+  function log(t) { textoLog = (t + "\n" + textoLog).slice(0, 3000); if (ui.log) ui.log.textContent = textoLog }
   function alerta(t) { log("⚠ " + t); aviso("⚠ " + t) }
   function aviso(t) { if (!ui.aviso) return; ui.aviso.textContent = t; ui.aviso.hidden = !t; if (t) log(t) }
   function pintaEstado() {
@@ -328,18 +336,22 @@
     var dot = h("span", "ot-dot"); dot.style.background = m >= 0 ? COLMODO[m] : "#555"; ui.est.appendChild(dot);
     ui.est.appendChild(document.createTextNode(m >= 0 ? (est.nombre || "Otto") + " · Modo " + MODOS[m] + " · 🔊 " + est.vol + " · 🐇 " + est.vel + (est.pantalla ? " · 😀 pantalla" : "") : "Sin conectar"));
     if (ui.pant) ui.pant.hidden = !est.pantalla;
-    if (m === 3) empiezaIA(); else if (iaOn) paraIA();
+    if (m === 3) empiezaIA(); else if (ui.ia && !ui.ia.hidden) paraIA();
   }
   function pinta() {
     ui.main.innerHTML = "";
     if (verConfig) { ui.main.appendChild(configuracion()); return }
     ui.main.appendChild(vista === "vertical" ? mandoVertical() : mandoHorizontal());
-    ui.mic = h("div", "ot-mic"); ui.mic.hidden = !iaOn; ui.main.appendChild(ui.mic);
-    ui.escribe = h("div", "ot-p"); ui.escribe.hidden = true;
+    ui.ia = h("div", "ot-p"); ui.ia.hidden = est.modo !== 3; ui.ia.appendChild(h("h3", "", "🧠 Modo IA"));
+    ui.iaInfo = h("div", "ot-est", ""); ui.ia.appendChild(ui.iaInfo);
+    ui.bMic = h("button", "ot-b on", iaOn ? "🔇 Apagar micrófono" : "🎤 Activar micrófono"); ui.bMic.onclick = function () { iaOn ? microOff() : microOn() }; ui.ia.appendChild(ui.bMic);
+    ui.mic = h("div", "ot-mic"); ui.mic.hidden = !iaOn; ui.mic.style.marginTop = "8px"; ui.ia.appendChild(ui.mic);
+    ui.main.insertBefore(ui.ia, ui.main.firstChild);
+    ui.escribe = h("div", ""); ui.escribe.style.marginTop = "10px";
     var inp = h("input", "ot-in"); inp.placeholder = "Escribe a " + (est.nombre || "Otto") + "…"; var b = h("button", "ot-b on", "Enviar");
-    b.onclick = function () { if (inp.value.trim()) { pregunta(inp.value.trim()); inp.value = "" } }; ui.escribe.appendChild(inp); ui.escribe.appendChild(b); ui.main.appendChild(ui.escribe);
+    b.onclick = function () { if (inp.value.trim()) { pregunta(inp.value.trim()); inp.value = "" } }; ui.escribe.appendChild(inp); ui.escribe.appendChild(b); ui.ia.appendChild(ui.escribe);
     ui.pant = panelPantalla(); ui.pant.hidden = !est.pantalla; ui.main.appendChild(ui.pant);
-    var lp = h("div", "ot-p"); lp.appendChild(h("h3", "", "📝 Mensajes")); ui.log = h("div", "ot-log"); lp.appendChild(ui.log); ui.main.appendChild(lp);
+    var lp = h("div", "ot-p"); lp.appendChild(h("h3", "", "📝 Mensajes")); ui.log = h("div", "ot-log"); ui.log.textContent = textoLog; lp.appendChild(ui.log); ui.main.appendChild(lp);
   }
   function abrir() {
     if (raiz) return;
@@ -353,7 +365,7 @@
     var conf = h("button", "ot-b", "⚙️"); conf.onclick = function () { verConfig = !verConfig; pinta() };
     [salir, ui.con, todos, cambia, conf].forEach(function (b) { top.appendChild(b) });
     raiz.appendChild(top);
-    var ver = h("span", "ot-est", "v7"); ver.style.marginLeft = "auto"; top.appendChild(ver);   // versión del controlador (para saber si el móvil tiene la nueva)
+    var ver = h("span", "ot-est", "v8"); ver.style.marginLeft = "auto"; top.appendChild(ver);   // versión del controlador (para saber si el móvil tiene la nueva)
     ui.est = h("div", "ot-est", "Sin conectar"); raiz.appendChild(ui.est);
     ui.aviso = h("div", "ot-mic"); ui.aviso.hidden = true; ui.aviso.style.background = "#5a3a10"; raiz.appendChild(ui.aviso);
     ui.main = h("div", "ot-main"); raiz.appendChild(ui.main);
