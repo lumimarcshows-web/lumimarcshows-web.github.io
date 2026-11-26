@@ -8,6 +8,9 @@
   "use strict";
   if (window.OttoControl) return;
   var SRV = "0000ffe0-0000-1000-8000-00805f9b34fb", CHR = "0000ffe1-0000-1000-8000-00805f9b34fb";
+  // otros servicios "de puerto serie" que usan algunos módulos parecidos (por si el nuestro no usa FFE0)
+  var SERVICIOS = [SRV, "0000ffe5-0000-1000-8000-00805f9b34fb", "0000fff0-0000-1000-8000-00805f9b34fb",
+                   "49535343-fe7d-4ae5-8fa9-9fafd205e455", "6e400001-b5a3-f393-e0a9-e50e24dcca9e"];
   var K = { POWER: 0x45, VOLMAS: 0x46, FUNC: 0x47, ANT: 0x44, PLAY: 0x40, SIG: 0x43, ABAJO: 0x07, VOLMENOS: 0x15, ARRIBA: 0x09,
             N0: 0x16, EQ: 0x19, REPT: 0x0d, N1: 0x0c, N2: 0x18, N3: 0x5e, N4: 0x08, N5: 0x1c, N6: 0x5a, N7: 0x42, N8: 0x52, N9: 0x4a };
   var MOVS = [K.PLAY, K.FUNC, K.ANT, K.SIG, K.ABAJO, K.ARRIBA];
@@ -75,19 +78,35 @@
     if (!navigator.bluetooth) { aviso("Este navegador no tiene Bluetooth. En iPhone, abre la web con la app «Bluefy»."); return }
     aviso(todos ? "Lista de TODOS los Bluetooth: apaga y enciende a Otto y mira cuál aparece." : "Buscando a Otto… (solo salen los que tienen su tipo de Bluetooth)");
     var pide;
-    try { pide = todos ? navigator.bluetooth.requestDevice({ acceptAllDevices: true, optionalServices: [SRV] })
-                       : navigator.bluetooth.requestDevice({ filters: [{ services: [SRV] }, { namePrefix: "BT" }, { namePrefix: "MLT" }, { namePrefix: "HM" }, { namePrefix: "JDY" }], optionalServices: [SRV] }) }
+    try { pide = todos ? navigator.bluetooth.requestDevice({ acceptAllDevices: true, optionalServices: SERVICIOS })
+                       : navigator.bluetooth.requestDevice({ filters: [{ namePrefix: "Otto" }, { namePrefix: "BT" }, { namePrefix: "MLT" }, { namePrefix: "HM" }, { namePrefix: "JDY" }, { services: [SRV] }], optionalServices: SERVICIOS }) }
     catch (e) { pide = Promise.reject(e) }
     pide.catch(function (e) {                                   // si este navegador no deja «todos», busca los que tienen el servicio de Otto
       if (e && e.name === "NotFoundError") throw e;
       log("ℹ️ Pruebo otra forma de buscar… (" + textoError(e) + ")");
-      return navigator.bluetooth.requestDevice({ acceptAllDevices: true, optionalServices: [SRV] });
+      return navigator.bluetooth.requestDevice({ acceptAllDevices: true, optionalServices: SERVICIOS });
     })
       .then(function (d) { dev = d; d.addEventListener("gattserverdisconnected", desconectado); ui.con.textContent = "⏳"; return d.gatt.connect() })
-      .then(function (g) { return g.getPrimaryService(SRV) }).then(function (s) { return s.getCharacteristic(CHR) })
+      .then(function (g) { return buscaCaracteristica(g) })
       .then(function (c) { car = c; c.addEventListener("characteristicvaluechanged", recibir); return c.startNotifications() })
       .then(function () { ui.con.textContent = "🔗 Conectado"; ui.con.classList.add("on"); aviso(""); enviar("V" + (ls("otto_vel") || 5)); log("✅ Conectado a Otto") })
       .catch(function (e) { ui.con.textContent = "🔗 Conectar"; aviso(e && e.name === "NotFoundError" ? "No has elegido ningún Bluetooth." : "⚠ " + textoError(e) + " · Mira que el Bluetooth del iPhone esté encendido y que Bluefy tenga permiso (Ajustes → Bluefy → Bluetooth).") });
+  }
+  // busca en el módulo una "característica" donde se pueda escribir y que avise (notify): es el puerto serie
+  function buscaCaracteristica(g) {
+    return g.getPrimaryServices().catch(function () { return [] }).then(function (lista) {
+      var prom = Promise.resolve(null);
+      lista.forEach(function (sv) {
+        prom = prom.then(function (ya) { if (ya) return ya;
+          return sv.getCharacteristics().then(function (cs) {
+            log("🔎 servicio " + sv.uuid.slice(4, 8) + ": " + cs.map(function (c) { return c.uuid.slice(4, 8) }).join(", "));
+            var b = cs.filter(function (c) { return c.properties.notify && (c.properties.write || c.properties.writeWithoutResponse) })[0];
+            return b || null;
+          }, function () { return null });
+        });
+      });
+      return prom;
+    }).then(function (c) { if (!c) throw new Error("No encuentro el canal para hablar con Otto"); return c });
   }
   function desconectado() { car = null; ui.con.textContent = "🔗 Conectar"; ui.con.classList.remove("on"); est.modo = -1; pintaEstado(); paraIA(); log("🔌 Otto desconectado") }
   setInterval(function () { if (car) enviar("H" + (ls("otto_api") ? "1" : "0")) }, 1000);   // "estoy aquí" (y si hay clave de Gemini)
@@ -334,7 +353,7 @@
     var conf = h("button", "ot-b", "⚙️"); conf.onclick = function () { verConfig = !verConfig; pinta() };
     [salir, ui.con, todos, cambia, conf].forEach(function (b) { top.appendChild(b) });
     raiz.appendChild(top);
-    var ver = h("span", "ot-est", "v5"); ver.style.marginLeft = "auto"; top.appendChild(ver);   // versión del controlador (para saber si el móvil tiene la nueva)
+    var ver = h("span", "ot-est", "v6"); ver.style.marginLeft = "auto"; top.appendChild(ver);   // versión del controlador (para saber si el móvil tiene la nueva)
     ui.est = h("div", "ot-est", "Sin conectar"); raiz.appendChild(ui.est);
     ui.aviso = h("div", "ot-mic"); ui.aviso.hidden = true; ui.aviso.style.background = "#5a3a10"; raiz.appendChild(ui.aviso);
     ui.main = h("div", "ot-main"); raiz.appendChild(ui.main);
