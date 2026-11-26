@@ -18,7 +18,7 @@
   var CARAS = ["😐 Normal", "😊 Feliz", "😢 Triste", "😮 Sorpresa", "😴 Dormido", "😍 Enamorado", "😵 Mareado", "😠 Enfadado", "😉 Guiño"];
   var SONIDOS = ["láser", "sirena", "boing", "robot", "explosión", "R2", "encender", "triste", "ronquido", "victoria", "pedo", "bip", "al azar",
                  "canción funky", "marcha robot", "fiesta", "amor", "hola", "feliz", "magia"];
-  try { if (localStorage.getItem("otto_voz_v15") !== "1") { localStorage.setItem("otto_voz", "movil"); localStorage.setItem("otto_voz_v15", "1") } } catch (e) {}
+  try { if (localStorage.getItem("otto_voz_v17") !== "1") { localStorage.setItem("otto_voz", "gemini"); localStorage.setItem("otto_voz_v17", "1") } } catch (e) {}
   function ls(k, v) { try { if (v === undefined) return localStorage.getItem(k) || ""; localStorage.setItem(k, v) } catch (e) { return "" } }
   function h(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e }
   function hex2(n) { return (n < 16 ? "0" : "") + n.toString(16).toUpperCase() }
@@ -49,7 +49,7 @@
 
   // ---------- estado
   var dev = null, car = null, cola = Promise.resolve(), est = { modo: -1, vol: 0, vel: 5, pantalla: 0, nombre: "Otto" };
-  var esperaL = null, esperaR = null, buf = "";
+  var esperaL = null, esperaR = null, esperaF = null, buf = "";
   var ui = {}, vista = ls("otto_vista") || "vertical";
 
   // ---------- Bluetooth
@@ -65,6 +65,25 @@
     }).catch(function (e) { log("⚠ " + e.message) });
     return cola;
   }
+  // v17: manda bytes tal cual (la voz comprimida), lo más rápido que deja el Bluetooth
+  function enviarBin(cabecera, bytes) {
+    if (!car) return Promise.resolve(0);
+    var t0 = 0;
+    cola = cola.then(function () {
+      t0 = Date.now();
+      var cab = new TextEncoder().encode(cabecera + "\n"), p = car.writeValueWithoutResponse ? car.writeValueWithoutResponse(cab) : car.writeValue(cab);
+      p = p.then(function () { return espera(30) });
+      var i = 0;
+      function sigue() {
+        if (i >= bytes.length) return Promise.resolve();
+        var trozo = bytes.slice(i, i + 20); i += 20;
+        return (car.writeValueWithoutResponse ? car.writeValueWithoutResponse(trozo) : car.writeValue(trozo))
+          .then(function () { return (i % 400 === 0) ? espera(8) : null }).then(sigue);
+      }
+      return p.then(sigue);
+    }).catch(function (e) { log("⚠ voz BT: " + textoError(e)) });
+    return cola.then(function () { var seg = (Date.now() - t0) / 1000; log("📡 Voz enviada: " + (bytes.length / 1024).toFixed(1) + " KB en " + seg.toFixed(1) + " s"); return seg });
+  }
   function recibir(ev) {
     buf += new TextDecoder().decode(ev.target.value);
     var i;
@@ -73,6 +92,7 @@
       if (l[0] === "E") { var p = l.slice(1).split(","); est.modo = +p[0]; est.vol = +p[1]; est.vel = +p[2]; est.pantalla = +p[3]; est.nombre = p.slice(4).join(",") || "Otto"; pintaEstado() }
       else if (l[0] === "R" && esperaR) { esperaR(+l.slice(1)); esperaR = null }
       else if (l === "L" && esperaL) { esperaL(); esperaL = null }
+      else if (l === "F" && esperaF) { esperaF(); esperaF = null }
     }
   }
   function conectar(todos) {
@@ -260,6 +280,7 @@
     if (window.speechSynthesis) speechSynthesis.cancel();
     enviar("S20"); enviar("W0"); enviar("N"); hablando = false; dichoAhora = ""; seguirHasta = 0;
     if (esperaL) { var l = esperaL; esperaL = null; l() }
+    if (esperaF) { var ff = esperaF; esperaF = null; ff() }
   }
   function sistema(d) {
     var nom = est.nombre || "Otto";
@@ -332,9 +353,16 @@
   function responde(o, mio) {
     var acc = (o.acciones || []).slice(0, 6), sonidos = [], movs = [];
     acc.forEach(function (a) { var w = String(a).trim().split(/\s+/); (w[0] === "SONIDO" || w[0] === "CANCION" ? sonidos : movs).push(w) });
-    var cadena = Promise.resolve();                        // v15: PRIMERO la animación (movimientos, luces, sonidos)...
+    var modoVoz = ls("otto_voz") || "gemini";
+    var prep = modoVoz === "gemini" ? preparaVozOtto(o.texto || "") : Promise.resolve(null);   // v17: la voz se prepara y se manda MIENTRAS anima
+    var cadena = Promise.resolve();                        // PRIMERO la animación (movimientos, luces, sonidos)...
     movs.concat(sonidos).forEach(function (w) { cadena = cadena.then(function () { if (mio === turno) return accion(w) }) });
-    return cadena.then(function () { if (mio === turno) return decir(o.texto || "") })   // ...y cuando acaba, habla
+    return Promise.all([cadena, prep]).then(function (rr) {   // ...y cuando acaba, habla
+      if (mio !== turno) return;
+      if (rr[1]) return hablaOtto(rr[1], o.texto || "");
+      if (modoVoz === "gemini") log("ℹ️ La voz de Gemini no ha funcionado: hablo con la del móvil");
+      return decir(o.texto || "", modoVoz === "gemini" ? "movil" : null);
+    })
     .then(function () { if (mio === turno && /\?\s*$/.test(o.texto || "")) { seguirHasta = Date.now() + 5000; luzEscucha(true); log("🎤 (5 s para contestar)") } });
   }
   function esperaFin(maxMs) { return new Promise(function (r) { esperaL = r; setTimeout(function () { if (esperaL === r) { esperaL = null; r() } }, maxMs) }) }
@@ -352,12 +380,69 @@
     if (t === "DIBUJO") { enviar("F" + (w[1] || "")); return espera(50) }
     return Promise.resolve();
   }
+  // v17: VOZ DE GEMINI por el altavoz de Otto
+  var VOZ_GEMINI = "Puck";
+  function vozGemini(texto) {                              // devuelve las muestras (24000/s) o null
+    var clave = ls("otto_api"); if (!clave || !texto) return Promise.resolve(null);
+    var modelos = ["gemini-2.5-flash-preview-tts", "gemini-2.5-flash-tts", "gemini-2.5-pro-preview-tts"];
+    var cuerpo = JSON.stringify({ contents: [{ parts: [{ text: "Dilo en español, con voz alegre y rápida de robot pequeño y simpático: " + texto }] }],
+      generationConfig: { responseModalities: ["AUDIO"], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: VOZ_GEMINI } } } } });
+    function prueba(i) {
+      if (i >= modelos.length) return null;
+      return fetch("https://generativelanguage.googleapis.com/v1beta/models/" + modelos[i] + ":generateContent", { method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": clave }, body: cuerpo })
+        .then(function (r) { return r.json().then(function (j) {
+          var d = j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts && j.candidates[0].content.parts[0].inlineData;
+          if (!r.ok || !d) { log("⚠ voz " + modelos[i] + ": " + ((j.error && j.error.message) || "sin audio").slice(0, 100)); return prueba(i + 1) }
+          var bin = atob(d.data), n = bin.length >> 1, pcm = new Int16Array(n);
+          for (var k = 0; k < n; k++) { var v = bin.charCodeAt(2 * k) | (bin.charCodeAt(2 * k + 1) << 8); pcm[k] = v > 32767 ? v - 65536 : v }
+          return pcm;
+        }) }, function () { return prueba(i + 1) });
+    }
+    return prueba(0);
+  }
+  var IMA_IDX = [-1, -1, -1, -1, 2, 4, 6, 8, -1, -1, -1, -1, 2, 4, 6, 8];
+  var IMA_STEP = [7,8,9,10,11,12,13,14,16,17,19,21,23,25,28,31,34,37,41,45,50,55,60,66,73,80,88,97,107,118,130,143,157,173,190,209,230,253,279,307,337,371,408,449,494,544,598,658,724,796,876,963,1060,1166,1282,1411,1552,1707,1878,2066,2272,2499,2749,3024,3327,3660,4026,4428,4871,5358,5894,6484,7132,7845,8630,9493,10442,11487,12635,13899,15289,16818,18500,20350,22385,24623,27086,29794,32767];
+  function aOtto(pcm24) {                                  // 24000 -> 8000 muestras/s, más fuerte, y comprimido a 4 bits (ADPCM)
+    var n = Math.floor(pcm24.length / 3), m = new Float32Array(n), max = 1;
+    for (var i = 0; i < n; i++) { m[i] = (pcm24[3 * i] + pcm24[3 * i + 1] + pcm24[3 * i + 2]) / 3; if (Math.abs(m[i]) > max) max = Math.abs(m[i]) }
+    var g = 30000 / max, out = new Uint8Array(Math.ceil(n / 2)), pred = 0, idx = 0;
+    for (i = 0; i < n; i++) {
+      var x = Math.max(-32768, Math.min(32767, m[i] * g)), st = IMA_STEP[idx], d = x - pred, code = 0;
+      if (d < 0) { code = 8; d = -d }
+      var dq = st >> 3;
+      if (d >= st) { code |= 4; d -= st; dq += st } if (d >= st >> 1) { code |= 2; d -= st >> 1; dq += st >> 1 } if (d >= st >> 2) { code |= 1; dq += st >> 2 }
+      pred += (code & 8) ? -dq : dq; pred = Math.max(-32768, Math.min(32767, pred));
+      idx = Math.max(0, Math.min(88, idx + IMA_IDX[code]));
+      if (i & 1) out[i >> 1] |= code << 4; else out[i >> 1] = code;
+    }
+    return out;
+  }
+  // prepara la voz y la manda a Otto (mientras Otto hace la animación). Devuelve una función para «¡habla ya!»
+  function preparaVozOtto(texto) {
+    return vozGemini(texto).then(function (pcm) {
+      if (!pcm || !car) return null;
+      var bytes = aOtto(pcm), seg = pcm.length / 24000;
+      if (bytes.length > 98000) bytes = bytes.slice(0, 98000);
+      var envio = enviarBin("B" + bytes.length + "," + Math.round(8000 * 1.08), bytes);   // 1,08 = un poquito más agudo (robotito)
+      return { seg: seg, envio: envio };
+    });
+  }
+  function hablaOtto(prep, texto) {                         // espera a que acabe de hablar (Otto dice «F»)
+    hablando = true; dichoAhora = texto;
+    var mio = turno;
+    return prep.envio.then(function () {
+      if (mio !== turno) return;
+      enviar("O");
+      return new Promise(function (r) { esperaF = r; setTimeout(function () { if (esperaF === r) { esperaF = null; r() } }, prep.seg * 1000 + 6000) });
+    }).then(function () { if (mio === turno) { hablando = false; dichoAhora = "" } });
+  }
   // hablar: con la voz de Otto (por su altavoz) o con la del móvil
-  function decir(texto) {
+  function decir(texto, forzar) {
     if (!texto) return Promise.resolve();
     hablando = true; dichoAhora = texto;
     var mio = turno, fin = function () { if (mio === turno) { hablando = false; dichoAhora = "" } };
-    if ((ls("otto_voz") || "movil") === "movil" && window.speechSynthesis) {
+    var mv = forzar || ls("otto_voz") || "gemini";
+    if ((mv === "movil" || mv === "gemini") && window.speechSynthesis) {
       // mientras habla el móvil, el micro se pausa (si no, el iPhone saca el sonido por el auricular, muy bajito)
       if (rec) { microPausado = true; try { rec.stop() } catch (e) {} }
       var vuelveMicro = function () { microPausado = false; if (iaOn && rec) setTimeout(function () { try { rec.start() } catch (e) {} }, 350) };
@@ -382,8 +467,8 @@
     var api = campo("🔑 Clave de la API de Gemini (se guarda solo en este móvil):", "otto_api", "password", "AIza…");
     var mod = campo("🧠 Modelo de Gemini (déjalo vacío = automático):", "otto_modelo", "text", "automático");
     p.appendChild(h("div", "", "🔊 ¿Con qué voz contesta la IA?"));
-    var sel = h("select", "ot-in"); [["movil", "Voz del móvil (se entiende mejor)"], ["otto", "Voz de robot de Otto, por su altavoz (experimental)"]].forEach(function (x) { var o = h("option", "", x[1]); o.value = x[0]; sel.appendChild(o) });
-    sel.value = ls("otto_voz") || "movil"; p.appendChild(sel);
+    var sel = h("select", "ot-in"); [["gemini", "Voz de Gemini por el altavoz de Otto (tarda unos segundos)"], ["movil", "Voz del móvil (la más rápida)"], ["otto", "Voz de sílabas de Otto (experimental)"]].forEach(function (x) { var o = h("option", "", x[1]); o.value = x[0]; sel.appendChild(o) });
+    sel.value = ls("otto_voz") || "gemini"; p.appendChild(sel);
     var g = h("button", "ot-b on", "💾 Guardar");
     g.onclick = function () {
       ls("otto_api", api.value.trim()); ls("otto_modelo", mod.value.trim()); ls("otto_voz", sel.value);
@@ -443,7 +528,7 @@
     var conf = h("button", "ot-b", "⚙️"); conf.onclick = function () { verConfig = !verConfig; pinta() };
     [salir, ui.con, todos, cambia, conf].forEach(function (b) { top.appendChild(b) });
     raiz.appendChild(top);
-    var ver = h("span", "ot-est", "v16"); ver.style.marginLeft = "auto"; top.appendChild(ver);   // versión del controlador (para saber si el móvil tiene la nueva)
+    var ver = h("span", "ot-est", "v17"); ver.style.marginLeft = "auto"; top.appendChild(ver);   // versión del controlador (para saber si el móvil tiene la nueva)
     ui.est = h("div", "ot-est", "Sin conectar"); raiz.appendChild(ui.est);
     ui.aviso = h("div", "ot-mic"); ui.aviso.hidden = true; ui.aviso.style.background = "#5a3a10"; raiz.appendChild(ui.aviso);
     ui.main = h("div", "ot-main"); raiz.appendChild(ui.main);
