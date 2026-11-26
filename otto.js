@@ -49,7 +49,7 @@
   ].join("");
 
   // ---------- estado
-  var dev = null, car = null, cola = Promise.resolve(), est = { modo: -1, vol: 0, vel: 5, pantalla: 0, nombre: "Otto" };
+  var dev = null, car = null, cola = Promise.resolve(), est = { modo: -1, vol: 0, vel: 5, pantalla: 0, nombre: "Otto", fw: 0 };
   var esperaL = null, esperaR = null, esperaF = null, buf = "";
   var ui = {}, vista = ls("otto_vista") || "vertical";
 
@@ -80,7 +80,7 @@
         if (i >= bytes.length) { ls("otto_pausa", String(fallos ? pausa : Math.max(0, Math.floor(pausa * 0.7)))); return Promise.resolve() }
         if (mioEnvio !== turno) throw new Error("cortado");
         var trozo = bytes.slice(i, i + 20); n++;
-        return escribe(trozo, n % 16 === 0).then(function () { i += 20; return pausa ? espera(pausa) : null }, function (e) {
+        return escribe(trozo, n % 32 === 0).then(function () { i += 20; return pausa ? espera(pausa) : null }, function (e) {
           if (/rate limit|too many/i.test(textoError(e)) && fallos < 30) {       // v20: el navegador pide ir más despacio
             fallos++; pausa = Math.min(120, Math.round(pausa * 1.6) + 4); log("🐢 Bluetooth más despacio (" + pausa + " ms)");
             return espera(700);
@@ -92,7 +92,7 @@
     }).catch(function (e) { ok = false; log("⚠ voz BT: " + textoError(e)) });
     return cola.then(function () {
       if (!ok) return -1;
-      var seg = (Date.now() - t0) / 1000; log("📡 Voz enviada: " + (bytes.length / 1024).toFixed(1) + " KB en " + seg.toFixed(1) + " s"); return seg;
+      var seg = (Date.now() - t0) / 1000; if (cabecera[0] !== "b") log("📡 Voz enviada: " + (bytes.length / 1024).toFixed(1) + " KB en " + seg.toFixed(1) + " s"); return seg;
     });
   }
   function recibir(ev) {
@@ -100,7 +100,8 @@
     var i;
     while ((i = buf.indexOf("\n")) >= 0) {
       var l = buf.slice(0, i).trim(); buf = buf.slice(i + 1);
-      if (l[0] === "E") { var p = l.slice(1).split(","); est.modo = +p[0]; est.vol = +p[1]; est.vel = +p[2]; est.pantalla = +p[3]; est.nombre = p.slice(4).join(",") || "Otto"; pintaEstado() }
+      if (l[0] === "E") { var p = l.slice(1).split(","); est.modo = +p[0]; est.vol = +p[1]; est.vel = +p[2]; est.pantalla = +p[3]; est.nombre = p.slice(4).join(",") || "Otto"; est.fw = 0;
+        var bar = est.nombre.lastIndexOf("|"); if (bar >= 0) { est.fw = +est.nombre.slice(bar + 1) || 0; est.nombre = est.nombre.slice(0, bar) } pintaEstado() }
       else if (l[0] === "R" && esperaR) { esperaR(+l.slice(1)); esperaR = null }
       else if (l === "L" && esperaL) { esperaL(); esperaL = null }
       else if (l === "F" && esperaF) { esperaF(); esperaF = null }
@@ -309,7 +310,7 @@
       "Tu cuerpo: robot Otto impreso en 3D, con 2 piernas y 4 servos (cadera izquierda, cadera derecha, pie izquierdo, pie derecho), un sensor de distancia ultrasónico que parece unos ojos, 4 luces de colores, un altavoz, un zumbador" +
       (est.pantalla ? " y una pantalla de LEDs de 16x8 puntos como boca" : "") + ". Funcionas con una Raspberry Pi Pico y pilas. Ahora mismo el sensor marca " + (d >= 0 && d < 900 ? d + " cm" : "que no hay nada delante") + ". " +
       "Lo que te dicen viene del reconocimiento de voz y puede tener palabras mal escritas o cambiadas por otras que suenan parecido: adivina lo que quería decir el niño y contesta a eso, sin decirle que lo ha dicho mal. " +
-      "Hablas en español, frases MUY cortas (1 a 3 frases), alegres y fáciles para un niño. Si te preguntan algo peligroso (enchufes, soldar, pilas que se calientan, herramientas) di que lo haga con un adulto. Nunca pidas datos personales. " +
+      "Hablas en español, MUY corto: 1 o 2 frases y como mucho 20 palabras en total (si te piden algo largo, como un cuento, entonces sí puedes alargarte), alegres y fáciles para un niño. Si te preguntan algo peligroso (enchufes, soldar, pilas que se calientan, herramientas) di que lo haga con un adulto. Nunca pidas datos personales. " +
       "MOVERSE ES OPCIONAL: si solo te preguntan algo o charláis, NO hagas animaciones (lista vacía o, como mucho, alguna POSTURA suave mientras hablas). Haz animaciones solo si te lo piden o si de verdad viene a cuento (por ejemplo, si te dicen que bailes, bailas). " +
       "Si te piden una postura o un movimiento concreto (levanta una pata, ponte de puntillas, inclínate, «ponte al pino»…), invéntalo tú con POSTURA, con los ángulos que quieras. " +
       "Responde SOLO con JSON: {\"acciones\":[...],\"texto\":\"lo que dices en voz alta\"}. Cada acción es un texto de esta lista:\n" +
@@ -323,6 +324,23 @@
       (est.pantalla ? "\"CARA <n>\" " + CARAS.map(function (c, i) { return i + " " + c.slice(3) }).join(", ") + ".\n\"DIBUJO <32 cifras hex>\" dibujo de 16x8 puntos: 16 bytes, los 8 primeros son la mitad izquierda y los 8 siguientes la derecha, un byte por fila de arriba a abajo, el bit más alto es el punto de la izquierda.\n" : "") +
       "Pon como mucho 10 acciones (las POSTURA cuentan). Si no hace falta moverse, la lista vacía: [].";
   }
+  // v22: lista de modelos que existen HOY (Google los cambia de nombre a menudo)
+  var listaModelos = null;
+  function modelosGoogle() {
+    if (listaModelos) return Promise.resolve(listaModelos);
+    try { var c = JSON.parse(ls("otto_modelos") || "null"); if (c && Date.now() - c.t < 86400000) { listaModelos = c; return Promise.resolve(c) } } catch (e) {}
+    return fetch("https://generativelanguage.googleapis.com/v1beta/models?pageSize=300", { headers: { "x-goog-api-key": ls("otto_api") } })
+      .then(function (r) { return r.json() }).then(function (j) {
+        var todos = (j.models || []).filter(function (m) { return (m.supportedGenerationMethods || []).indexOf("generateContent") >= 0 }).map(function (m) { return m.name.replace("models/", "") });
+        function ver(n) { var x = n.match(/(\d+(?:\.\d+)?)/); return x ? +x[1] : 0 }
+        var texto = todos.filter(function (n) { return /flash/.test(n) && !/tts|image|live|audio|embed|vision|thinking|exp/.test(n) })
+          .sort(function (a, b) { return (ver(b) - ver(a)) || ((/lite/.test(b) ? 1 : 0) - (/lite/.test(a) ? 1 : 0)) || (/preview/.test(a) ? 1 : 0) - (/preview/.test(b) ? 1 : 0) });
+        var voz = todos.filter(function (n) { return /tts/.test(n) }).sort(function (a, b) { return (ver(b) - ver(a)) || ((/flash/.test(b) ? 1 : 0) - (/flash/.test(a) ? 1 : 0)) });
+        listaModelos = { t: Date.now(), texto: texto.slice(0, 6), voz: voz.slice(0, 4) };
+        ls("otto_modelos", JSON.stringify(listaModelos)); log("🧠 Modelos: " + listaModelos.texto.slice(0, 3).join(", "));
+        return listaModelos;
+      }).catch(function () { return { texto: [], voz: [] } });
+  }
   function pregunta(texto) {
     cortaTodo(); var mio = ++turno;                        // v13: lo nuevo corta lo que estaba pensando o diciendo
     log("🧒 " + texto);
@@ -333,11 +351,10 @@
     var paraIA = otras.length ? texto + "\n(El micrófono puede haberse equivocado. Otras formas en que pudo oírse: «" + otras.join("», «") + "». Entiende lo más probable.)" : texto;
     historia.push({ role: "user", parts: [{ text: paraIA }] }); historia = historia.slice(-6);
     // modelos RÁPIDOS primero (sin "pensar en voz baja"); el que funcionó la última vez, el primero de todos
-    var modelos = [ls("otto_modelo"), ls("otto_ultimo"), "gemini-2.5-flash-lite", "gemini-flash-lite-latest", "gemini-2.5-flash", "gemini-2.0-flash", "gemini-flash-latest", "gemini-2.0-flash-lite"]
-      .filter(function (m, i, a) { return m && a.indexOf(m) === i });
+    var modelos = [];
     var vuelta = 0;
     function cuerpo(m) {
-      var gc = { responseMimeType: "application/json", temperature: 0.9, maxOutputTokens: 400 };
+      var gc = { responseMimeType: "application/json", temperature: 0.9, maxOutputTokens: 300 };
       if (/2\.5-flash(?!-lite)/.test(m)) gc.thinkingConfig = { thinkingBudget: 0 };   // sin pensar en voz baja = mucho más rápido
       return JSON.stringify({ systemInstruction: { parts: [{ text: sistema(ultimaDist) }] }, contents: historia, generationConfig: gc });
     }
@@ -358,12 +375,17 @@
         if (r.ok) { ls("otto_ultimo", modelos[i]); return j }
         var msg = (j.error && j.error.message) || ("error " + r.status);
         log("⚠ " + modelos[i] + ": " + msg.slice(0, 120));
+        if (/no longer available|not found/i.test(msg)) { if (ls("otto_ultimo") === modelos[i]) ls("otto_ultimo", ""); listaModelos = null; ls("otto_modelos", "") }
         if (r.status === 400 && /API key|api_key|API_KEY/.test(msg)) throw new Error("La clave de Gemini no es válida. Revísala en ⚙️ Configuración.");
         if (r.status === 403) throw new Error("La clave no tiene permiso para Gemini (" + msg.slice(0, 80) + ")");
         return prueba(i + 1, msg);
       }) }, function (e) { clearTimeout(tiempo); if (mio !== turno) throw new Error("cortado"); log("⚠ " + modelos[i] + ": " + (e.name === "AbortError" ? "tarda demasiado" : textoError(e))); return prueba(i + 1, "Sin respuesta") });
     }
-    prueba(0).then(function (j) {
+    modelosGoogle().then(function (L) {
+      modelos = [ls("otto_modelo"), ls("otto_ultimo")].concat(L.texto, ["gemini-flash-lite-latest", "gemini-flash-latest", "gemini-3.5-flash-lite", "gemini-3.8-flash"])
+        .filter(function (m, i, a) { return m && a.indexOf(m) === i });
+      return prueba(0);
+    }).then(function (j) {
       if (mio !== turno) return;
       var raw = j && j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts.map(function (p) { return p.text || "" }).join("");
       if (!raw) throw new Error((j.error && j.error.message) || "Sin respuesta");
@@ -372,17 +394,18 @@
       enviar("W0"); log("🤖 " + (o.texto || "") + "   (" + ((Date.now() - t0) / 1000).toFixed(1) + " s)"); return responde(o, mio);
     }).catch(function (e) { if (mio !== turno || /cortado/.test(e.message)) return; enviar("W0"); log("⚠ " + textoError(e)); aviso("⚠ IA: " + textoError(e)); decir("Uy, no he podido pensar.") });
   }
+  var avisoFw = false;
   function responde(o, mio) {
     var acc = (o.acciones || []).slice(0, 10), sonidos = [], movs = [], posturas = [];
     acc.forEach(function (a) { var w = String(a).trim().split(/\s+/); (w[0] === "POSTURA" ? posturas : w[0] === "SONIDO" || w[0] === "CANCION" ? sonidos : movs).push(w) });
     var modoVoz = ls("otto_voz") || "gemini";
-    var prep = modoVoz === "gemini" ? preparaVozOtto(o.texto || "") : Promise.resolve(null);   // la voz se prepara (Gemini) mientras anima
+    if (modoVoz === "gemini" && est.fw < 23 && !avisoFw) { avisoFw = true; log("ℹ️ Otto tiene un programa viejo: conéctalo por USB para actualizarlo. Mientras, hablo con la voz del móvil.") }
+    var voz = modoVoz === "gemini" && est.fw >= 23 ? vozEnDirecto(o.texto || "", posturas) : Promise.resolve(null);   // v22: la voz se crea y se manda YA
     var cadena = Promise.resolve();                        // PRIMERO la animación (movimientos, luces, sonidos)...
     movs.concat(sonidos).forEach(function (w) { cadena = cadena.then(function () { if (mio === turno) return accion(w) }) });
-    return Promise.all([cadena, prep]).then(function (rr) {   // ...y cuando acaba, habla
-      if (mio !== turno) return;
-      if (rr[1] && rr[1] !== "lento") return hablaOtto(rr[1], o.texto || "", posturas);
-      if (modoVoz === "gemini" && rr[1] !== "lento") log("ℹ️ La voz de Gemini no ha funcionado: hablo con la del móvil");
+    return Promise.all([cadena, voz]).then(function (rr) {   // Otto habla solo en cuanto acaba de moverse
+      if (mio !== turno || rr[1]) return;
+      if (modoVoz === "gemini") log("ℹ️ La voz de Gemini no ha funcionado: hablo con la del móvil");
       return decir(o.texto || "", modoVoz === "gemini" ? "movil" : null);
     })
     .then(function () { if (mio === turno && /\?\s*$/.test(o.texto || "")) { seguirHasta = Date.now() + 5000; luzEscucha(true); log("🎤 (5 s para contestar)") } });
@@ -439,38 +462,82 @@
     }
     return out;
   }
-  // prepara la voz y la manda a Otto (mientras Otto hace la animación). Devuelve una función para «¡habla ya!»
-  function preparaVozOtto(texto) {
-    return vozGemini(texto).then(function (pcm) {
-      if (!pcm || !car) return null;
-      var bytes = aOtto(pcm), seg = pcm.length / 24000;
-      var bpsAprendido = +ls("otto_bps") || 0;
-      if (bpsAprendido && bytes.length / bpsAprendido - seg > 7 && Math.random() > 0.25) { log("ℹ️ El Bluetooth va lento (" + bpsAprendido + " bytes/s): contesto con la voz del móvil"); return "lento" }
-      if (bytes.length > 98000) bytes = bytes.slice(0, 98000);
-      return { seg: seg, bytes: bytes };
-    });
+  // v22: VOZ EN DIRECTO. Gemini crea la voz a trozos (streaming) y cada trozo se comprime y se manda a Otto al momento.
+  function codificador() {                                 // ADPCM que recuerda dónde se quedó entre trozo y trozo
+    var pred = 0, idx = 0, resto = [], max = 9000, impar = false, medio = 0;
+    return function (pcm24) {
+      var a = resto.concat(Array.prototype.slice.call(pcm24)), n = Math.floor(a.length / 4), out = [];
+      resto = a.slice(n * 4);
+      for (var i = 0; i < n; i++) {
+        var m = (a[4 * i] + a[4 * i + 1] + a[4 * i + 2] + a[4 * i + 3]) / 4;
+        if (Math.abs(m) > max) max = Math.abs(m);
+        var x = Math.max(-32768, Math.min(32767, m * (30000 / max))), st = IMA_STEP[idx], d = x - pred, code = 0;
+        if (d < 0) { code = 8; d = -d }
+        var dq = st >> 3;
+        if (d >= st) { code |= 4; d -= st; dq += st } if (d >= st >> 1) { code |= 2; d -= st >> 1; dq += st >> 1 } if (d >= st >> 2) { code |= 1; dq += st >> 2 }
+        pred += (code & 8) ? -dq : dq; pred = Math.max(-32768, Math.min(32767, pred));
+        idx = Math.max(0, Math.min(88, idx + IMA_IDX[code]));
+        if (impar) { out.push(medio | (code << 4)); impar = false } else { medio = code; impar = true }
+      }
+      return new Uint8Array(out);
+    };
   }
-  function hablaOtto(prep, texto, posturas) {              // v18: Otto empieza a hablar SOLO en cuanto le ha llegado bastante
+  function b64aPcm(b64) { var bin = atob(b64), n = bin.length >> 1, pcm = new Int16Array(n);
+    for (var k = 0; k < n; k++) { var v = bin.charCodeAt(2 * k) | (bin.charCodeAt(2 * k + 1) << 8); pcm[k] = v > 32767 ? v - 65536 : v } return pcm }
+  // abre la voz en Otto, va mandando trozos y la cierra. Devuelve una promesa que se cumple cuando Otto ACABA de hablar (o null si falla)
+  function vozEnDirecto(texto, posturas) {
+    var clave = ls("otto_api"); if (!clave || !texto || !car) return Promise.resolve(null);
+    var mio = turno, RATE = 6000 * 1.08, porSeg = RATE / 2, cod = codificador(), enviados = 0, t0 = Date.now(), abierta = false;
+    var bps = Math.min(6000, +ls("otto_bps") || 1700), segEstim = Math.max(1, texto.length / 13);
+    var empezar = bps >= porSeg ? 1200 : Math.round(segEstim * porSeg * (1 - bps / porSeg)) + 1200;
+    function abre() {
+      if (abierta) return; abierta = true;
+      enviar("IX");
+      (posturas || []).slice(0, 16).forEach(function (w) { var t = Math.round((+w[1] || 0) * 1000), v = w.slice(2, 7).map(function (x) { return Math.round(+x || 90) }); enviar("I" + t + "," + v.join(",")) });
+      enviar("B0," + Math.round(RATE) + "," + empezar);
+    }
+    function manda(bytes) { if (!bytes.length || mio !== turno) return; abre(); enviados += bytes.length;
+      for (var i = 0; i < bytes.length; i += 2400) { var tr = bytes.slice(i, i + 2400); enviarBin("b" + tr.length, tr) } }
+    var cuerpo = JSON.stringify({ contents: [{ parts: [{ text: "Dilo en español, con voz alegre y rápida de robot pequeño y simpático: " + texto }] }],
+      generationConfig: { responseModalities: ["AUDIO"], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: VOZ_GEMINI } } } } });
+    var modelos = [];
+    function prueba(i) {
+      if (i >= modelos.length) return Promise.resolve(false);
+      return fetch("https://generativelanguage.googleapis.com/v1beta/models/" + modelos[i] + ":streamGenerateContent?alt=sse", { method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": clave }, body: cuerpo })
+        .then(function (r) {
+          if (!r.ok || !r.body) { log("⚠ voz " + modelos[i] + ": error " + r.status);
+            if (r.status === 429) { ls("otto_sinvoz", String(Date.now() + 3 * 3600000)); log("ℹ️ Se ha gastado la voz gratis de Gemini: 3 horas con la voz del móvil"); return false }
+            return prueba(i + 1) }
+          var lector = r.body.getReader(), dec = new TextDecoder(), trozo = "", algo = false;
+          function lee() {
+            return lector.read().then(function (x) {
+              if (x.done || mio !== turno) return algo;
+              trozo += dec.decode(x.value, { stream: true });
+              var k;
+              while ((k = trozo.indexOf("\n")) >= 0) {
+                var lin = trozo.slice(0, k).trim(); trozo = trozo.slice(k + 1);
+                if (lin.indexOf("data:") !== 0) continue;
+                try { var j = JSON.parse(lin.slice(5)); (j.candidates && j.candidates[0].content && j.candidates[0].content.parts || []).forEach(function (pt) {
+                  if (pt.inlineData && pt.inlineData.data) { algo = true; manda(cod(b64aPcm(pt.inlineData.data))) } }) } catch (e) {}
+              }
+              return lee();
+            });
+          }
+          return lee().then(function (ok) { return ok || prueba(i + 1) });
+        }, function () { return prueba(i + 1) });
+    }
     hablando = true; dichoAhora = texto;
-    var mio = turno, b = prep.bytes, RATE = 6000 * 1.08, porSeg = RATE / 2;   // bytes que gasta por segundo hablando
-    // posturas mientras habla (se mandan antes que la voz)
-    enviar("IX");
-    (posturas || []).slice(0, 16).forEach(function (w) {
-      var t = Math.round((+w[1] || 0) * 1000), v = w.slice(2, 7).map(function (x) { return Math.round(+x || 90) });
-      enviar("I" + t + "," + v.join(","));
+    if (Date.now() < +ls("otto_sinvoz")) { hablando = false; return Promise.resolve(null) }   // hoy ya se gastó la voz gratis
+    return modelosGoogle().then(function (L) { modelos = L.voz.length ? L.voz : ["gemini-2.5-flash-preview-tts"]; return prueba(0) }).then(function (ok) {
+      if (!ok || mio !== turno) { if (abierta) enviar("b0"); hablando = false; return null }
+      enviar("b0");
+      return cola.then(function () {
+        var seg = (Date.now() - t0) / 1000; if (seg > 1 && enviados > 3000) ls("otto_bps", String(Math.max(200, Math.min(6000, Math.round(enviados / seg)))));
+        log("📡 Voz en directo: " + (enviados / 1024).toFixed(1) + " KB en " + seg.toFixed(1) + " s");
+        var falta = enviados / porSeg * 1000 + 3000 - (Date.now() - t0);
+        return new Promise(function (r) { esperaF = r; setTimeout(function () { if (esperaF === r) { esperaF = null; r() } }, Math.max(2500, falta)) });
+      }).then(function () { if (mio === turno) { hablando = false; dichoAhora = "" } return true });
     });
-    // ¿con cuántos bytes puede empezar sin quedarse sin voz? (según lo rápido que fue el Bluetooth la última vez)
-    var bps = Math.min(6000, +ls("otto_bps") || 1500);
-    var empezar = bps >= porSeg ? 1500 : Math.ceil(b.length * (1 - bps / porSeg)) + 1500;
-    empezar = Math.max(800, Math.min(b.length, empezar));
-    var t0 = Date.now();
-    return enviarBin("B" + b.length + "," + Math.round(RATE) + "," + empezar, b).then(function (seg) {
-      if (seg > 1) ls("otto_bps", String(Math.max(200, Math.min(6000, Math.round(b.length / seg)))));
-      if (seg < 0) { enviar("S20"); return decir(texto, "movil") }               // ha fallado el Bluetooth: habla el móvil
-      if (mio !== turno) return;
-      var falta = prep.seg * 1000 + 4000 - (Date.now() - t0);
-      return new Promise(function (r) { esperaF = r; setTimeout(function () { if (esperaF === r) { esperaF = null; r() } }, Math.max(3000, falta)) });
-    }).then(function () { if (mio === turno) { hablando = false; dichoAhora = "" } });
   }
   // hablar: con la voz de Otto (por su altavoz) o con la del móvil
   function decir(texto, forzar) {
@@ -564,7 +631,7 @@
     var conf = h("button", "ot-b", "⚙️"); conf.onclick = function () { verConfig = !verConfig; pinta() };
     [salir, ui.con, todos, cambia, conf].forEach(function (b) { top.appendChild(b) });
     raiz.appendChild(top);
-    var ver = h("span", "ot-est", "v21"); ver.style.marginLeft = "auto"; top.appendChild(ver);   // versión del controlador (para saber si el móvil tiene la nueva)
+    var ver = h("span", "ot-est", "v23"); ver.style.marginLeft = "auto"; top.appendChild(ver);   // versión del controlador (para saber si el móvil tiene la nueva)
     ui.est = h("div", "ot-est", "Sin conectar"); raiz.appendChild(ui.est);
     ui.aviso = h("div", "ot-mic"); ui.aviso.hidden = true; ui.aviso.style.background = "#5a3a10"; raiz.appendChild(ui.aviso);
     ui.main = h("div", "ot-main"); raiz.appendChild(ui.main);
