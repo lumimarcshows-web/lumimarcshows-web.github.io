@@ -200,6 +200,11 @@
     if (ui.iaInfo && !iaOn) ui.iaInfo.textContent = "Pulsa «🎤 Activar micrófono» y di «" + (est.nombre || "Otto") + "…». O escríbele abajo.";
     enviarZ();
   }
+  function desbloqueaVoz() {                             // v16: el iPhone solo deja hablar si antes has TOCADO algo
+    try { if (window.speechSynthesis && !vozLista) { var u = new SpeechSynthesisUtterance(" "); u.volume = 0; speechSynthesis.speak(u); vozLista = true } } catch (e) {}
+  }
+  var vozLista = false, microPausado = false;
+  document.addEventListener("pointerdown", desbloqueaVoz, true);
   function microOn() {                                   // se llama al PULSAR el botón (el iPhone solo deja el micro así)
     if (iaOn) return;
     if (!ls("otto_api")) { empiezaIA(); return }
@@ -215,7 +220,7 @@
       alternativas = []; for (var a = 0; a < r.length; a++) if (r[a].transcript.trim()) alternativas.push(r[a].transcript.trim());
       if (t) oido(t);
     };
-    rec.onend = function () { if (iaOn && !hablando) try { rec.start() } catch (e) {} pintaMic() };
+    rec.onend = function () { if (iaOn && !microPausado) try { rec.start() } catch (e) {} pintaMic() };
     rec.onerror = function (e) { log("🎤 " + e.error); if (e.error === "not-allowed" || e.error === "service-not-allowed") { microOff(); ui.iaInfo.textContent = "🎤 Bluefy no puede usar el micrófono de la web. Usa el 🎤 del TECLADO: toca la caja de abajo 👇" } };
     try { rec.start() } catch (e) { log("⚠ micro: " + textoError(e)) }
     pintaMic();
@@ -249,6 +254,7 @@
   function pareceLoQueDice(t) { var a = sinAcentos(dichoAhora).split(/\W+/), b = t.split(/\W+/).filter(Boolean); if (!b.length) return true;
     return b.filter(function (w) { return a.indexOf(w) >= 0 }).length / b.length > 0.6 }
   var turno = 0, peticion = null;
+  function vuelveMicroSiHace() { if (microPausado) { microPausado = false; if (iaOn && rec) try { rec.start() } catch (e) {} } }
   function cortaTodo() {                                   // deja de pensar, de hablar y de hacer acciones
     turno++; if (peticion) try { peticion.abort() } catch (e) {} peticion = null;
     if (window.speechSynthesis) speechSynthesis.cancel();
@@ -352,10 +358,16 @@
     hablando = true; dichoAhora = texto;
     var mio = turno, fin = function () { if (mio === turno) { hablando = false; dichoAhora = "" } };
     if ((ls("otto_voz") || "movil") === "movil" && window.speechSynthesis) {
+      // mientras habla el móvil, el micro se pausa (si no, el iPhone saca el sonido por el auricular, muy bajito)
+      if (rec) { microPausado = true; try { rec.stop() } catch (e) {} }
+      var vuelveMicro = function () { microPausado = false; if (iaOn && rec) setTimeout(function () { try { rec.start() } catch (e) {} }, 350) };
       return new Promise(function (r) { var u = new SpeechSynthesisUtterance(texto); u.lang = "es-ES"; u.pitch = 1.45; u.rate = 1.05;
         var vs = speechSynthesis.getVoices().filter(function (v) { return /^es/i.test(v.lang) });
         var buena = vs.filter(function (v) { return /premium|enhanced|mejorad|siri|neural/i.test(v.name) })[0] || vs.filter(function (v) { return /es-ES/i.test(v.lang) })[0] || vs[0];
-        if (buena) u.voice = buena; u.onend = u.onerror = function () { fin(); r() }; speechSynthesis.speak(u) });
+        if (buena) u.voice = buena; u.volume = 1;
+        var hecho = false, acaba = function () { if (hecho) return; hecho = true; fin(); vuelveMicro(); r() };
+        u.onend = u.onerror = acaba; setTimeout(acaba, 1500 + texto.length * 120);       // por si el iPhone no avisa de que ha acabado
+        setTimeout(function () { speechSynthesis.cancel(); speechSynthesis.speak(u) }, rec ? 250 : 0) });
     }
     var trozos = texto.match(/.{1,150}(\s|$)/g) || [texto], p = Promise.resolve();
     trozos.forEach(function (tr) { p = p.then(function () { if (mio !== turno) return; enviar("D" + tr.trim()); return espera(tr.length * 75 + 300) }) });
@@ -406,6 +418,7 @@
     ui.ia = h("div", "ot-p"); ui.ia.hidden = est.modo !== 3; ui.ia.appendChild(h("h3", "", "🧠 Modo IA"));
     ui.iaInfo = h("div", "ot-est", ""); ui.ia.appendChild(ui.iaInfo);
     ui.bMic = h("button", "ot-b on", iaOn ? "🔇 Apagar micrófono" : "🎤 Activar micrófono"); ui.bMic.onclick = function () { iaOn ? microOff() : microOn() }; ui.ia.appendChild(ui.bMic);
+    var bPara = h("button", "ot-b", "✋ Parar"); bPara.style.marginLeft = "8px"; bPara.onclick = function () { cortaTodo(); vuelveMicroSiHace(); log("✋ Parado") }; ui.ia.appendChild(bPara);
     ui.mic = h("div", "ot-mic"); ui.mic.hidden = !iaOn; ui.mic.style.marginTop = "8px"; ui.ia.appendChild(ui.mic);
     ui.main.insertBefore(ui.ia, ui.main.firstChild);
     ui.escribe = h("div", ""); ui.escribe.style.marginTop = "10px";
@@ -430,7 +443,7 @@
     var conf = h("button", "ot-b", "⚙️"); conf.onclick = function () { verConfig = !verConfig; pinta() };
     [salir, ui.con, todos, cambia, conf].forEach(function (b) { top.appendChild(b) });
     raiz.appendChild(top);
-    var ver = h("span", "ot-est", "v15"); ver.style.marginLeft = "auto"; top.appendChild(ver);   // versión del controlador (para saber si el móvil tiene la nueva)
+    var ver = h("span", "ot-est", "v16"); ver.style.marginLeft = "auto"; top.appendChild(ver);   // versión del controlador (para saber si el móvil tiene la nueva)
     ui.est = h("div", "ot-est", "Sin conectar"); raiz.appendChild(ui.est);
     ui.aviso = h("div", "ot-mic"); ui.aviso.hidden = true; ui.aviso.style.background = "#5a3a10"; raiz.appendChild(ui.aviso);
     ui.main = h("div", "ot-main"); raiz.appendChild(ui.main);
