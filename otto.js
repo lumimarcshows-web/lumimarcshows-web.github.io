@@ -205,9 +205,14 @@
     var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) { ui.iaInfo.textContent = "🎤 Este navegador no deja escuchar con el micrófono. Escríbele abajo 👇"; return }
     iaOn = true; ui.mic.hidden = false; ui.bMic.textContent = "🔇 Apagar micrófono";
-    rec = new SR(); rec.lang = "es-ES"; rec.continuous = true; rec.interimResults = false;
+    rec = new SR(); rec.lang = "es-ES"; rec.continuous = true; rec.interimResults = true;
     rec.onspeechstart = function () { if (iaOn && !hablando) luzEscucha(true) };
-    rec.onresult = function (e) { var t = e.results[e.results.length - 1][0].transcript.trim(); if (t) oido(t) };
+    rec.onresult = function (e) {                          // v14: lo que vas diciendo sale escrito en directo
+      var r = e.results[e.results.length - 1], t = r[0].transcript.trim();
+      if (!r.isFinal) { enDirecto = t; enDirectoT = Date.now(); pintaMic(); return }
+      enDirecto = t; enDirectoT = Date.now(); pintaMic();
+      if (t) oido(t);
+    };
     rec.onend = function () { if (iaOn && !hablando) try { rec.start() } catch (e) {} pintaMic() };
     rec.onerror = function (e) { log("🎤 " + e.error); if (e.error === "not-allowed" || e.error === "service-not-allowed") { microOff(); ui.iaInfo.textContent = "🎤 Bluefy no puede usar el micrófono de la web. Usa el 🎤 del TECLADO: toca la caja de abajo 👇" } };
     try { rec.start() } catch (e) { log("⚠ micro: " + textoError(e)) }
@@ -216,8 +221,11 @@
   function enviarZ() { if (!zEnviada) { zEnviada = true; setTimeout(function () { enviar("Z") }, 2500) } }
   function paraIA() { microOff(); zEnviada = false; if (ui.ia) ui.ia.hidden = true }
   function microOff() { iaOn = false; if (rec) try { rec.onend = null; rec.stop() } catch (e) {} rec = null; if (ui.mic) ui.mic.hidden = true; if (ui.bMic) ui.bMic.textContent = "🎤 Activar micrófono" }
+  var enDirecto = "", enDirectoT = 0;
   function pintaMic() { if (verde && !hablando && seguirHasta && Date.now() > seguirHasta) { seguirHasta = 0; luzEscucha(false) }
-    if (!ui.mic) return; ui.mic.className = "ot-mic" + (Date.now() < seguirHasta ? " oye" : ""); ui.mic.textContent = hablando ? "🔊 " + (est.nombre || "Otto") + " está hablando…" : Date.now() < seguirHasta ? "🎤 Te escucho…" : "🎤 Di «" + (est.nombre || "Otto") + "» y lo que quieras" }
+    if (!ui.mic) return; ui.mic.className = "ot-mic" + (Date.now() < seguirHasta ? " oye" : ""); var base = hablando ? "🔊 " + (est.nombre || "Otto") + " está hablando…" : Date.now() < seguirHasta ? "🎤 Te escucho…" : "🎤 Di «" + (est.nombre || "Otto") + "» y lo que quieras";
+    ui.mic.textContent = base + (enDirecto && Date.now() - enDirectoT < 4000 ? "\n💬 «" + enDirecto + "»" : "");
+    ui.mic.style.whiteSpace = "pre-wrap" }
   setInterval(pintaMic, 500);
   function oido(texto) {
     var t = sinAcentos(texto);
@@ -416,7 +424,7 @@
     var conf = h("button", "ot-b", "⚙️"); conf.onclick = function () { verConfig = !verConfig; pinta() };
     [salir, ui.con, todos, cambia, conf].forEach(function (b) { top.appendChild(b) });
     raiz.appendChild(top);
-    var ver = h("span", "ot-est", "v13"); ver.style.marginLeft = "auto"; top.appendChild(ver);   // versión del controlador (para saber si el móvil tiene la nueva)
+    var ver = h("span", "ot-est", "v14"); ver.style.marginLeft = "auto"; top.appendChild(ver);   // versión del controlador (para saber si el móvil tiene la nueva)
     ui.est = h("div", "ot-est", "Sin conectar"); raiz.appendChild(ui.est);
     ui.aviso = h("div", "ot-mic"); ui.aviso.hidden = true; ui.aviso.style.background = "#5a3a10"; raiz.appendChild(ui.aviso);
     ui.main = h("div", "ot-main"); raiz.appendChild(ui.main);
