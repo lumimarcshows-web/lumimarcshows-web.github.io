@@ -221,6 +221,8 @@
   setInterval(pintaMic, 500);
   function oido(texto) {
     var t = sinAcentos(texto);
+    if (hablando && dichoAhora && pareceLoQueDice(t)) return;          // se está oyendo a sí mismo: no hace caso
+    if (/^(otto |oto )?(para|parate|calla|callate|stop|basta|quieto)\b/.test(t.trim())) { cortaTodo(); log("✋ Parado"); return }
     if (Date.now() < seguirHasta) { seguirHasta = 0; pregunta(texto); return }
     var ns = nombres(), pos = -1, largo = 0;
     ns.forEach(function (n) { var i = t.indexOf(sinAcentos(n)); if (i >= 0 && (pos < 0 || i < pos)) { pos = i; largo = n.length } });
@@ -229,10 +231,24 @@
     if (!resto) { decir("¿Sí?").then(function () { seguirHasta = Date.now() + 6000; luzEscucha(true) }); return }
     pregunta(resto);
   }
-  function distancia() { return new Promise(function (r) { esperaR = r; enviar("Q"); setTimeout(function () { if (esperaR) { esperaR = null; r(-1) } }, 800) }) }
+  // v13: la distancia se pide sola cada 3 s mientras hay IA (así no hay que esperarla al preguntar)
+  var ultimaDist = -1;
+  setInterval(function () { if (car && est.modo === 3) { esperaR = function (d) { ultimaDist = d }; enviar("Q") } }, 3000);
+  function distancia() { return Promise.resolve(ultimaDist) }
+  var dichoAhora = "";
+  function pareceLoQueDice(t) { var a = sinAcentos(dichoAhora).split(/\W+/), b = t.split(/\W+/).filter(Boolean); if (!b.length) return true;
+    return b.filter(function (w) { return a.indexOf(w) >= 0 }).length / b.length > 0.6 }
+  var turno = 0, peticion = null;
+  function cortaTodo() {                                   // deja de pensar, de hablar y de hacer acciones
+    turno++; if (peticion) try { peticion.abort() } catch (e) {} peticion = null;
+    if (window.speechSynthesis) speechSynthesis.cancel();
+    enviar("S20"); enviar("W0"); enviar("N"); hablando = false; dichoAhora = ""; seguirHasta = 0;
+    if (esperaL) { var l = esperaL; esperaL = null; l() }
+  }
   function sistema(d) {
     var nom = est.nombre || "Otto";
-    return "Eres " + nom + ", un robot pequeño y simpático que ha construido Marc, un niño de 9 años al que le encanta la electrónica, las luces y las fuentes musicales. " +
+    return "Eres " + nom + ", un robot pequeño y simpático. Te ha creado MARC, un niño de 9 años: te imprimió en 3D, te montó y te programó. Marc es tu creador y tu mejor amigo, y le encantan la electrónica, las luces, los shows y las fuentes musicales. " +
+      "Casi siempre quien te habla es Marc. Si alguien te dice que es Marc, ¡emociónate muchísimo! (luces de colores, baila o salta de alegría, dile lo mucho que le quieres y dale las gracias por crearte). Si te preguntan quién te ha creado o cuántos años tiene, contesta: Marc, que tiene 9 años. " +
       "Tu cuerpo: robot Otto impreso en 3D, con 2 piernas y 4 servos (cadera izquierda, cadera derecha, pie izquierdo, pie derecho), un sensor de distancia ultrasónico que parece unos ojos, 4 luces de colores, un altavoz, un zumbador" +
       (est.pantalla ? " y una pantalla de LEDs de 16x8 puntos como boca" : "") + ". Funcionas con una Raspberry Pi Pico y pilas. Ahora mismo el sensor marca " + (d >= 0 && d < 900 ? d + " cm" : "que no hay nada delante") + ". " +
       "Hablas en español, frases MUY cortas (1 a 3 frases), alegres y fáciles para un niño. Si te preguntan algo peligroso (enchufes, soldar, pilas que se calientan, herramientas) di que lo haga con un adulto. Nunca pidas datos personales. " +
@@ -248,52 +264,61 @@
       "Pon como mucho 6 acciones. Si no hace falta moverse, la lista puede estar vacía.";
   }
   function pregunta(texto) {
+    cortaTodo(); var mio = ++turno;                        // v13: lo nuevo corta lo que estaba pensando o diciendo
     log("🧒 " + texto);
     var clave = ls("otto_api"); if (!clave) { log("🔑 Falta la clave de Gemini"); return }
     verde = false; enviar("N"); enviar("W1");              // luces: lila que respira = pensando
-    distancia().then(function (d) {
-      historia.push({ role: "user", parts: [{ text: texto }] }); historia = historia.slice(-8);
-      var cuerpo = JSON.stringify({ systemInstruction: { parts: [{ text: sistema(d) }] }, contents: historia, generationConfig: { responseMimeType: "application/json", temperature: 0.9 } });
-      // v11: si un modelo no existe o está ocupado, prueba el siguiente
-      var modelos = [ls("otto_modelo"), "gemini-flash-latest", "gemini-2.5-flash", "gemini-flash-lite-latest", "gemini-2.5-flash-lite", "gemini-2.0-flash", "gemini-2.0-flash-lite"].filter(function (m, i, a) { return m && a.indexOf(m) === i });
-      var vuelta = 0;
-      function prueba(i, ultimoError) {
-        if (i >= modelos.length) {                         // v12: si TODOS están ocupados, espera un poco y vuelve a probar (hasta 3 vueltas)
-          if (vuelta < 2 && /demand|overloaded|UNAVAILABLE|503|429|quota|Resource/i.test(ultimoError || "")) {
-            vuelta++; log("⏳ Gemini está muy ocupado, vuelvo a probar… (" + vuelta + ")");
-            return espera(2500 * vuelta).then(function () { return prueba(0, ultimoError) });
-          }
-          throw new Error(/demand|overloaded|UNAVAILABLE|503/i.test(ultimoError || "") ? "Gemini está muy ocupado ahora mismo. Prueba otra vez en un minuto." : (ultimoError || "Ningún modelo ha contestado"));
+    var t0 = Date.now();
+    historia.push({ role: "user", parts: [{ text: texto }] }); historia = historia.slice(-6);
+    // modelos RÁPIDOS primero (sin "pensar en voz baja"); el que funcionó la última vez, el primero de todos
+    var modelos = [ls("otto_modelo"), ls("otto_ultimo"), "gemini-2.5-flash-lite", "gemini-flash-lite-latest", "gemini-2.5-flash", "gemini-2.0-flash", "gemini-flash-latest", "gemini-2.0-flash-lite"]
+      .filter(function (m, i, a) { return m && a.indexOf(m) === i });
+    var vuelta = 0;
+    function cuerpo(m) {
+      var gc = { responseMimeType: "application/json", temperature: 0.9, maxOutputTokens: 400 };
+      if (/2\.5-flash(?!-lite)/.test(m)) gc.thinkingConfig = { thinkingBudget: 0 };   // sin pensar en voz baja = mucho más rápido
+      return JSON.stringify({ systemInstruction: { parts: [{ text: sistema(ultimaDist) }] }, contents: historia, generationConfig: gc });
+    }
+    function prueba(i, ultimoError) {
+      if (mio !== turno) throw new Error("cortado");
+      if (i >= modelos.length) {
+        if (vuelta < 2 && /demand|overloaded|UNAVAILABLE|503|429|quota|Resource/i.test(ultimoError || "")) {
+          vuelta++; log("⏳ Gemini está muy ocupado, vuelvo a probar… (" + vuelta + ")");
+          return espera(1500 * vuelta).then(function () { return prueba(0, ultimoError) });
         }
-        return fetch("https://generativelanguage.googleapis.com/v1beta/models/" + encodeURIComponent(modelos[i]) + ":generateContent", {
-          method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": clave }, body: cuerpo
-        }).then(function (r) { return r.json().then(function (j) {
-          if (r.ok) { if (i > 0) log("ℹ️ Uso el modelo " + modelos[i]); return j }
-          var msg = (j.error && j.error.message) || ("error " + r.status);
-          log("⚠ " + modelos[i] + ": " + msg.slice(0, 160));
-          if (r.status === 400 && /API key|api_key|API_KEY/.test(msg)) throw new Error("La clave de Gemini no es válida. Revísala en ⚙️ Configuración.");
-          if (r.status === 403) throw new Error("La clave no tiene permiso para Gemini (" + msg.slice(0, 80) + ")");
-          return prueba(i + 1, msg);
-        }) }, function (e) { log("⚠ red: " + textoError(e)); return prueba(i + 1, "Sin conexión a internet") });
+        throw new Error(/demand|overloaded|UNAVAILABLE|503/i.test(ultimoError || "") ? "Gemini está muy ocupado ahora mismo. Prueba otra vez en un minuto." : (ultimoError || "Ningún modelo ha contestado"));
       }
-      return prueba(0);
-    }).then(function (j) {
-      var raw = j && j.candidates && j.candidates[0] && j.candidates[0].content.parts.map(function (p) { return p.text || "" }).join("");
+      peticion = window.AbortController ? new AbortController() : null;
+      var tiempo = setTimeout(function () { if (peticion) peticion.abort() }, 12000);   // si tarda más de 12 s, prueba otro
+      return fetch("https://generativelanguage.googleapis.com/v1beta/models/" + encodeURIComponent(modelos[i]) + ":generateContent", {
+        method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": clave }, body: cuerpo(modelos[i]), signal: peticion ? peticion.signal : undefined
+      }).then(function (r) { clearTimeout(tiempo); return r.json().then(function (j) {
+        if (r.ok) { ls("otto_ultimo", modelos[i]); return j }
+        var msg = (j.error && j.error.message) || ("error " + r.status);
+        log("⚠ " + modelos[i] + ": " + msg.slice(0, 120));
+        if (r.status === 400 && /API key|api_key|API_KEY/.test(msg)) throw new Error("La clave de Gemini no es válida. Revísala en ⚙️ Configuración.");
+        if (r.status === 403) throw new Error("La clave no tiene permiso para Gemini (" + msg.slice(0, 80) + ")");
+        return prueba(i + 1, msg);
+      }) }, function (e) { clearTimeout(tiempo); if (mio !== turno) throw new Error("cortado"); log("⚠ " + modelos[i] + ": " + (e.name === "AbortError" ? "tarda demasiado" : textoError(e))); return prueba(i + 1, "Sin respuesta") });
+    }
+    prueba(0).then(function (j) {
+      if (mio !== turno) return;
+      var raw = j && j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts.map(function (p) { return p.text || "" }).join("");
       if (!raw) throw new Error((j.error && j.error.message) || "Sin respuesta");
       var o; try { o = JSON.parse(raw) } catch (e) { o = { acciones: [], texto: raw } }
       historia.push({ role: "model", parts: [{ text: raw }] });
-      enviar("W0"); log("🤖 " + (o.texto || "")); return responde(o);
-    }).catch(function (e) { enviar("W0"); log("⚠ " + textoError(e)); aviso("⚠ IA: " + textoError(e)); decir("Uy, no he podido pensar.") });
+      enviar("W0"); log("🤖 " + (o.texto || "") + "   (" + ((Date.now() - t0) / 1000).toFixed(1) + " s)"); return responde(o, mio);
+    }).catch(function (e) { if (mio !== turno || /cortado/.test(e.message)) return; enviar("W0"); log("⚠ " + textoError(e)); aviso("⚠ IA: " + textoError(e)); decir("Uy, no he podido pensar.") });
   }
-  function responde(o) {
+  function responde(o, mio) {
     var acc = (o.acciones || []).slice(0, 6), sonidos = [], movs = [];
     acc.forEach(function (a) { var w = String(a).trim().split(/\s+/); (w[0] === "SONIDO" || w[0] === "CANCION" ? sonidos : movs).push(w) });
     var habla = decir(o.texto || "");
     var cadena = Promise.resolve();
-    movs.forEach(function (w) { cadena = cadena.then(function () { return accion(w) }) });   // se mueve mientras habla
+    movs.forEach(function (w) { cadena = cadena.then(function () { if (mio === turno) return accion(w) }) });   // se mueve mientras habla
     return Promise.all([habla, cadena]).then(function () {
-      var c2 = Promise.resolve(); sonidos.forEach(function (w) { c2 = c2.then(function () { return accion(w) }) }); return c2;
-    }).then(function () { if (/\?\s*$/.test(o.texto || "")) { seguirHasta = Date.now() + 5000; luzEscucha(true); log("🎤 (5 s para contestar)") } });
+      var c2 = Promise.resolve(); sonidos.forEach(function (w) { c2 = c2.then(function () { if (mio === turno) return accion(w) }) }); return c2;
+    }).then(function () { if (mio === turno && /\?\s*$/.test(o.texto || "")) { seguirHasta = Date.now() + 5000; luzEscucha(true); log("🎤 (5 s para contestar)") } });
   }
   function esperaFin(maxMs) { return new Promise(function (r) { esperaL = r; setTimeout(function () { if (esperaL === r) { esperaL = null; r() } }, maxMs) }) }
   function accion(w) {
@@ -313,13 +338,13 @@
   // hablar: con la voz de Otto (por su altavoz) o con la del móvil
   function decir(texto) {
     if (!texto) return Promise.resolve();
-    hablando = true; if (rec) try { rec.stop() } catch (e) {}
-    var fin = function () { hablando = false; if (iaOn && rec) try { rec.start() } catch (e) {} };
+    hablando = true; dichoAhora = texto;
+    var mio = turno, fin = function () { if (mio === turno) { hablando = false; dichoAhora = "" } };
     if ((ls("otto_voz") || "otto") === "movil" && window.speechSynthesis) {
       return new Promise(function (r) { var u = new SpeechSynthesisUtterance(texto); u.lang = "es-ES"; u.pitch = 1.6; u.rate = 1.05; u.onend = u.onerror = function () { fin(); r() }; speechSynthesis.speak(u) });
     }
     var trozos = texto.match(/.{1,150}(\s|$)/g) || [texto], p = Promise.resolve();
-    trozos.forEach(function (tr) { p = p.then(function () { enviar("D" + tr.trim()); return espera(tr.length * 85 + 400) }) });
+    trozos.forEach(function (tr) { p = p.then(function () { if (mio !== turno) return; enviar("D" + tr.trim()); return espera(tr.length * 75 + 300) }) });
     return p.then(fin);
   }
 
@@ -391,7 +416,7 @@
     var conf = h("button", "ot-b", "⚙️"); conf.onclick = function () { verConfig = !verConfig; pinta() };
     [salir, ui.con, todos, cambia, conf].forEach(function (b) { top.appendChild(b) });
     raiz.appendChild(top);
-    var ver = h("span", "ot-est", "v12"); ver.style.marginLeft = "auto"; top.appendChild(ver);   // versión del controlador (para saber si el móvil tiene la nueva)
+    var ver = h("span", "ot-est", "v13"); ver.style.marginLeft = "auto"; top.appendChild(ver);   // versión del controlador (para saber si el móvil tiene la nueva)
     ui.est = h("div", "ot-est", "Sin conectar"); raiz.appendChild(ui.est);
     ui.aviso = h("div", "ot-mic"); ui.aviso.hidden = true; ui.aviso.style.background = "#5a3a10"; raiz.appendChild(ui.aviso);
     ui.main = h("div", "ot-main"); raiz.appendChild(ui.main);
