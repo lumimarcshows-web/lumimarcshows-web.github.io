@@ -320,6 +320,7 @@
       "SERVO 3 = pie (tobillo) izquierdo, SERVO 4 = pie (tobillo) derecho: inclinan el pie de lado (levantan el borde de dentro o el de fuera; sirve para ponerse de puntillas, levantar una pata o inclinarse). " +
       "Ejemplos (servo1 servo2 servo3 servo4): recto 90 90 90 90 · puntillas favoritas de Marc 90 90 45 135 · puntillas al revés 90 90 135 45 · puntas de los pies hacia dentro 115 65 90 90 · hacia fuera 65 115 90 90 · inclinarte 90 90 70 70 o 110 110. " +
       "Para levantar una pata, primero carga el peso en la otra inclinando los dos pies hacia ese lado (por ejemplo 90 90 70 70) y después inclina más el pie de la pata que levantas. Cambios pequeños (10-30 grados) y movimientos de 300-800 ms: los cambios muy grandes de golpe te pueden tirar al suelo. Si te piden algo imposible para ti (como hacer el pino de verdad), dilo con gracia y haz lo más parecido. " +
+      "POSES YA HECHAS (por nombre): " + Object.keys(POSES).join(", ") + ". Úsalas con \"POSEHECHA <nombre> <ms>\" (antes de hablar, te quedas así ms milisegundos) o \"POSTURAHECHA <segundo> <nombre> <ms>\" (mientras hablas).\n" +
       "\"POSTURA <segundo> <servo1> <servo2> <servo3> <servo4> <ms>\" mueve tus servos MIENTRAS HABLAS, en el segundo que digas desde que empiezas a hablar (0, 0.5, 1.2…), tardando ms en llegar. Ángulos 20-160, 90 = recto. Las caderas giran la pierna (la punta del pie hacia dentro o hacia fuera); los pies inclinan el pie (subir el borde de dentro o de fuera: así te pones de puntillas, levantas una pata o te inclinas). Pon varias POSTURA seguidas para hacer cualquier movimiento; al acabar de hablar vuelves solo a recto.\n" +
       "\"POSE <caderaIzq> <caderaDer> <pieIzq> <pieDer> <ms>\" igual pero ANTES de hablar, quedándote ms milisegundos.\n" +
       "\"COLOR <RRGGBB>\" pone tus luces de un color; \"SINCOLOR\" vuelve al color normal.\n" +
@@ -398,10 +399,16 @@
       enviar("W0"); log("🤖 " + (o.texto || "") + "   (" + ((Date.now() - t0) / 1000).toFixed(1) + " s)"); return responde(o, mio);
     }).catch(function (e) { if (mio !== turno || /cortado/.test(e.message)) return; enviar("W0"); log("⚠ " + textoError(e)); aviso("⚠ IA: " + textoError(e)); decir("Uy, no he podido pensar.") });
   }
+  var POSES = { recto: [90, 90, 90, 90], puntillas: [90, 90, 45, 135], puntillas_reves: [90, 90, 135, 45], triste: [110, 70, 20, 160],
+    dormir: [100, 80, 60, 120], confuso: [110, 70, 90, 90], pies_dentro: [115, 65, 90, 90], pies_fuera: [65, 115, 90, 90],
+    inclinado_izq: [90, 90, 70, 70], inclinado_der: [90, 90, 110, 110], orgulloso: [70, 110, 100, 80], timido: [105, 75, 85, 95] };
   var avisoFw = false;
   function responde(o, mio) {
     var acc = (o.acciones || []).slice(0, 10), sonidos = [], movs = [], posturas = [];
-    acc.forEach(function (a) { var w = String(a).trim().split(/\s+/); (w[0] === "POSTURA" ? posturas : w[0] === "SONIDO" || w[0] === "CANCION" ? sonidos : movs).push(w) });
+    acc.forEach(function (a) { var w = String(a).trim().split(/\s+/);
+      if (w[0] === "POSEHECHA" && POSES[w[1]]) w = ["POSE"].concat(POSES[w[1]], [w[2] || 1500]);                        // v26: poses ya hechas
+      if (w[0] === "POSTURAHECHA" && POSES[w[2]]) w = ["POSTURA", w[1] || 0].concat(POSES[w[2]], [w[3] || 500]);
+      (w[0] === "POSTURA" ? posturas : w[0] === "SONIDO" || w[0] === "CANCION" ? sonidos : movs).push(w) });
     var modoVoz = ls("otto_voz") || "gemini";
     if (modoVoz === "gemini" && est.fw < 23 && !avisoFw) { avisoFw = true; log("ℹ️ Para que Otto hable con su propia voz, actualízalo por USB. Mientras, hablo con la voz del móvil.") }
     var voz = modoVoz === "gemini" && est.fw >= 23 ? vozEnDirecto(o.texto || "", posturas) : Promise.resolve(null);   // v22: la voz se crea y se manda YA
@@ -635,7 +642,7 @@
     var conf = h("button", "ot-b", "⚙️"); conf.onclick = function () { verConfig = !verConfig; pinta() };
     [salir, ui.con, todos, cambia, conf].forEach(function (b) { top.appendChild(b) });
     raiz.appendChild(top);
-    var ver = h("span", "ot-est", "v25"); ver.style.marginLeft = "auto"; top.appendChild(ver);   // versión del controlador (para saber si el móvil tiene la nueva)
+    var ver = h("span", "ot-est", "v26"); ver.style.marginLeft = "auto"; top.appendChild(ver);   // versión del controlador (para saber si el móvil tiene la nueva)
     ui.est = h("div", "ot-est", "Sin conectar"); raiz.appendChild(ui.est);
     ui.aviso = h("div", "ot-mic"); ui.aviso.hidden = true; ui.aviso.style.background = "#5a3a10"; raiz.appendChild(ui.aviso);
     ui.main = h("div", "ot-main"); raiz.appendChild(ui.main);
