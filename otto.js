@@ -80,7 +80,7 @@
         if (i >= bytes.length) { ls("otto_pausa", String(fallos ? pausa : Math.max(0, Math.floor(pausa * 0.7)))); return Promise.resolve() }
         if (mioEnvio !== turno) throw new Error("cortado");
         var trozo = bytes.slice(i, i + 20); n++;
-        return escribe(trozo, n % 32 === 0).then(function () { i += 20; return pausa ? espera(pausa) : null }, function (e) {
+        return escribe(trozo, n % 8 === 0).then(function () { i += 20; return pausa ? espera(pausa) : null }, function (e) {
           if (/rate limit|too many/i.test(textoError(e)) && fallos < 30) {       // v20: el navegador pide ir más despacio
             fallos++; pausa = Math.min(120, Math.round(pausa * 1.6) + 4); log("🐢 Bluetooth más despacio (" + pausa + " ms)");
             return espera(700);
@@ -315,7 +315,12 @@
       "Responde SOLO con JSON: {\"acciones\":[...],\"texto\":\"lo que dices en voz alta\"}. Cada acción es un texto de esta lista:\n" +
       "\"ANDA <dir> <pasos>\" dir: F adelante, B atrás, L girar izquierda, R girar derecha, I de lado izquierda, D de lado derecha, S balancearse, U subir y bajar, J temblar/vibrar, T puntillas, C crusaito, A aletear. pasos 1-6.\n" +
       "\"TRUCO <n>\" 0 puntillas quieto, 1 saludar, 2 moonwalker, 3 crusaito, 4 aleteo feliz, 5 sacudir piernas, 6 baile completo con música, 7 pedo, 8 enamorado, 9 victoria.\n" +
-      "\"POSTURA <segundo> <caderaIzq> <caderaDer> <pieIzq> <pieDer> <ms>\" mueve tus servos MIENTRAS HABLAS, en el segundo que digas desde que empiezas a hablar (0, 0.5, 1.2…), tardando ms en llegar. Ángulos 20-160, 90 = recto. Las caderas giran la pierna (la punta del pie hacia dentro o hacia fuera); los pies inclinan el pie (subir el borde de dentro o de fuera: así te pones de puntillas, levantas una pata o te inclinas). Pon varias POSTURA seguidas para hacer cualquier movimiento; al acabar de hablar vuelves solo a recto.\n" +
+      "CÓMO ES TU CUERPO: eres un Otto: cabeza grande cuadrada (los ojos son el sensor de distancia) encima de un cuerpo cuadrado, y 2 piernas cortas. Tienes 4 servos (motores), cada uno de 20 a 160 grados, con 90 = recto: " +
+      "SERVO 1 = cadera izquierda, SERVO 2 = cadera derecha: giran la pierna en horizontal (la punta del pie mira hacia dentro o hacia fuera; sirve para girar y andar). " +
+      "SERVO 3 = pie (tobillo) izquierdo, SERVO 4 = pie (tobillo) derecho: inclinan el pie de lado (levantan el borde de dentro o el de fuera; sirve para ponerse de puntillas, levantar una pata o inclinarse). " +
+      "Ejemplos (servo1 servo2 servo3 servo4): recto 90 90 90 90 · puntillas favoritas de Marc 90 90 45 135 · puntillas al revés 90 90 135 45 · puntas de los pies hacia dentro 115 65 90 90 · hacia fuera 65 115 90 90 · inclinarte 90 90 70 70 o 110 110. " +
+      "Para levantar una pata, primero carga el peso en la otra inclinando los dos pies hacia ese lado (por ejemplo 90 90 70 70) y después inclina más el pie de la pata que levantas. Cambios pequeños (10-30 grados) y movimientos de 300-800 ms: los cambios muy grandes de golpe te pueden tirar al suelo. Si te piden algo imposible para ti (como hacer el pino de verdad), dilo con gracia y haz lo más parecido. " +
+      "\"POSTURA <segundo> <servo1> <servo2> <servo3> <servo4> <ms>\" mueve tus servos MIENTRAS HABLAS, en el segundo que digas desde que empiezas a hablar (0, 0.5, 1.2…), tardando ms en llegar. Ángulos 20-160, 90 = recto. Las caderas giran la pierna (la punta del pie hacia dentro o hacia fuera); los pies inclinan el pie (subir el borde de dentro o de fuera: así te pones de puntillas, levantas una pata o te inclinas). Pon varias POSTURA seguidas para hacer cualquier movimiento; al acabar de hablar vuelves solo a recto.\n" +
       "\"POSE <caderaIzq> <caderaDer> <pieIzq> <pieDer> <ms>\" igual pero ANTES de hablar, quedándote ms milisegundos.\n" +
       "\"COLOR <RRGGBB>\" pone tus luces de un color; \"SINCOLOR\" vuelve al color normal.\n" +
       "\"SONIDO <n>\" " + SONIDOS.map(function (s, i) { return i + " " + s }).join(", ") + ".\n" +
@@ -463,14 +468,14 @@
   }
   // v22: VOZ EN DIRECTO. Gemini crea la voz a trozos (streaming) y cada trozo se comprime y se manda a Otto al momento.
   function codificador() {                                 // ADPCM que recuerda dónde se quedó entre trozo y trozo
-    var pred = 0, idx = 0, resto = [], max = 9000, impar = false, medio = 0;
+    var pred = 0, idx = 0, resto = [], max = 6000, impar = false, medio = 0;
     return function (pcm24) {
       var a = resto.concat(Array.prototype.slice.call(pcm24)), n = Math.floor(a.length / 4), out = [];
       resto = a.slice(n * 4);
       for (var i = 0; i < n; i++) {
         var m = (a[4 * i] + a[4 * i + 1] + a[4 * i + 2] + a[4 * i + 3]) / 4;
         if (Math.abs(m) > max) max = Math.abs(m);
-        var x = Math.max(-32768, Math.min(32767, m * (30000 / max))), st = IMA_STEP[idx], d = x - pred, code = 0;
+        var x = Math.tanh(2.2 * m / max) / Math.tanh(2.2) * 32000, st = IMA_STEP[idx], d = x - pred, code = 0;   // v25: compresor = suena más fuerte
         if (d < 0) { code = 8; d = -d }
         var dq = st >> 3;
         if (d >= st) { code |= 4; d -= st; dq += st } if (d >= st >> 1) { code |= 2; d -= st >> 1; dq += st >> 1 } if (d >= st >> 2) { code |= 1; dq += st >> 2 }
@@ -488,7 +493,7 @@
     var clave = ls("otto_api"); if (!clave || !texto || !car) return Promise.resolve(null);
     var mio = turno, RATE = 6000 * 1.08, porSeg = RATE / 2, cod = codificador(), enviados = 0, t0 = Date.now(), abierta = false;
     var bps = Math.min(6000, +ls("otto_bps") || 1700), segEstim = Math.max(1, texto.length / 13);
-    var empezar = bps >= porSeg ? 1200 : Math.round(segEstim * porSeg * (1 - bps / porSeg)) + 1200;
+    var empezar = Math.round(segEstim * porSeg * Math.max(0, 1 - bps / porSeg) * 1.25) + 3500;   // v25: más reserva = sin cortes
     function abre() {
       if (abierta) return; abierta = true;
       enviar("IX");
@@ -497,7 +502,7 @@
     }
     function manda(bytes) { if (!bytes.length || mio !== turno) return; abre(); enviados += bytes.length;
       for (var i = 0; i < bytes.length; i += 2400) { var tr = bytes.slice(i, i + 2400); enviarBin("b" + tr.length, tr) } }
-    var cuerpo = JSON.stringify({ contents: [{ parts: [{ text: "Dilo en español, con voz alegre y rápida de robot pequeño y simpático: " + texto }] }],
+    var cuerpo = JSON.stringify({ contents: [{ parts: [{ text: texto }] }],
       generationConfig: { responseModalities: ["AUDIO"], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: VOZ_GEMINI } } } } });
     var modelos = [];
     function prueba(i) {
@@ -630,7 +635,7 @@
     var conf = h("button", "ot-b", "⚙️"); conf.onclick = function () { verConfig = !verConfig; pinta() };
     [salir, ui.con, todos, cambia, conf].forEach(function (b) { top.appendChild(b) });
     raiz.appendChild(top);
-    var ver = h("span", "ot-est", "v24"); ver.style.marginLeft = "auto"; top.appendChild(ver);   // versión del controlador (para saber si el móvil tiene la nueva)
+    var ver = h("span", "ot-est", "v25"); ver.style.marginLeft = "auto"; top.appendChild(ver);   // versión del controlador (para saber si el móvil tiene la nueva)
     ui.est = h("div", "ot-est", "Sin conectar"); raiz.appendChild(ui.est);
     ui.aviso = h("div", "ot-mic"); ui.aviso.hidden = true; ui.aviso.style.background = "#5a3a10"; raiz.appendChild(ui.aviso);
     ui.main = h("div", "ot-main"); raiz.appendChild(ui.main);
