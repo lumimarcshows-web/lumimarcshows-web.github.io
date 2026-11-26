@@ -620,9 +620,17 @@
     p.appendChild(h("div", "", "🔊 ¿Con qué voz contesta la IA?"));
     var sel = h("select", "ot-in"); [["gemini", "Voz de Gemini por el altavoz de Otto (tarda unos segundos)"], ["movil", "Voz del móvil (la más rápida)"], ["otto", "Voz de sílabas de Otto (experimental)"]].forEach(function (x) { var o = h("option", "", x[1]); o.value = x[0]; sel.appendChild(o) });
     sel.value = ls("otto_voz") || "gemini"; p.appendChild(sel);
-    p.appendChild(h("div", "", "⏱️ La voz de Otto:"));
-    var sm = h("select", "ot-in"); [["rapido", "⚡ Empezar rápido (puede hacer alguna pausita)"], ["calidad", "🎵 Sin cortes (espera un poco antes de hablar)"]].forEach(function (x) { var o = h("option", "", x[1]); o.value = x[0]; sm.appendChild(o) });
-    sm.value = ls("otto_vozmodo") || "rapido"; sm.onchange = function () { ls("otto_vozmodo", sm.value) }; p.appendChild(sm);
+    p.appendChild(h("div", "", "⏱️ La voz de Otto:"));                                   // v30: dos botones con explicación pequeña
+    var fm = h("div", "ot-fila"); fm.style.margin = "6px 0 12px"; fm.style.maxWidth = "none"; fm.style.justifyContent = "flex-start";
+    [["rapido", "⚡ Empezar rápido", "Habla antes, pero puede haber algún corte."], ["calidad", "🎵 Sin cortes", "Habla seguido, pero tarda más en responder."]].forEach(function (x) {
+      var b = h("button", "ot-b"); b.style.textAlign = "left"; b.style.flex = "1 1 140px";
+      b.appendChild(h("div", "", x[1])); var peq = h("div", "", x[2]); peq.style.fontSize = "12px"; peq.style.opacity = ".8"; peq.style.marginTop = "3px"; b.appendChild(peq);
+      function marca() { [].forEach.call(fm.children, function (c) { c.classList.remove("on") }); b.classList.add("on") }
+      if ((ls("otto_vozmodo") || "rapido") === x[0]) b.classList.add("on");
+      b.onclick = function () { ls("otto_vozmodo", x[0]); marca() };
+      fm.appendChild(b);
+    });
+    p.appendChild(fm);
     var g = h("button", "ot-b on", "💾 Guardar");
     g.onclick = function () {
       ls("otto_api", api.value.trim()); ls("otto_modelo", mod.value.trim()); ls("otto_voz", sel.value);
@@ -682,7 +690,7 @@
     var conf = h("button", "ot-b", "⚙️"); conf.onclick = function () { verConfig = !verConfig; pinta() };
     [salir, ui.con, todos, cambia, conf].forEach(function (b) { top.appendChild(b) });
     raiz.appendChild(top);
-    var ver = h("span", "ot-est", "v29"); ver.style.marginLeft = "auto"; top.appendChild(ver);   // versión del controlador (para saber si el móvil tiene la nueva)
+    var ver = h("span", "ot-est", "v30"); ver.style.marginLeft = "auto"; top.appendChild(ver);   // versión del controlador (para saber si el móvil tiene la nueva)
     ui.est = h("div", "ot-est", "Sin conectar"); raiz.appendChild(ui.est);
     ui.aviso = h("div", "ot-mic"); ui.aviso.hidden = true; ui.aviso.style.background = "#5a3a10"; raiz.appendChild(ui.aviso);
     ui.main = h("div", "ot-main"); raiz.appendChild(ui.main);
