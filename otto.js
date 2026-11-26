@@ -18,6 +18,7 @@
   var CARAS = ["😐 Normal", "😊 Feliz", "😢 Triste", "😮 Sorpresa", "😴 Dormido", "😍 Enamorado", "😵 Mareado", "😠 Enfadado", "😉 Guiño"];
   var SONIDOS = ["láser", "sirena", "boing", "robot", "explosión", "R2", "encender", "triste", "ronquido", "victoria", "pedo", "bip", "al azar",
                  "canción funky", "marcha robot", "fiesta", "amor", "hola", "feliz", "magia"];
+  try { if (localStorage.getItem("otto_bps_v19") !== "1") { localStorage.removeItem("otto_bps"); localStorage.setItem("otto_bps_v19", "1") } } catch (e) {}
   try { if (localStorage.getItem("otto_voz_v17") !== "1") { localStorage.setItem("otto_voz", "gemini"); localStorage.setItem("otto_voz_v17", "1") } } catch (e) {}
   function ls(k, v) { try { if (v === undefined) return localStorage.getItem(k) || ""; localStorage.setItem(k, v) } catch (e) { return "" } }
   function h(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e }
@@ -66,23 +67,26 @@
     return cola;
   }
   // v17: manda bytes tal cual (la voz comprimida), lo más rápido que deja el Bluetooth
-  function enviarBin(cabecera, bytes) {
-    if (!car) return Promise.resolve(0);
-    var t0 = 0;
+  function enviarBin(cabecera, bytes) {                   // v19: devuelve los segundos que ha tardado, o -1 si ha fallado
+    if (!car) return Promise.resolve(-1);
+    var t0 = 0, ok = true;
     cola = cola.then(function () {
       t0 = Date.now();
-      var cab = new TextEncoder().encode(cabecera + "\n"), p = car.writeValueWithoutResponse ? car.writeValueWithoutResponse(cab) : car.writeValue(cab);
-      p = p.then(function () { return espera(30) });
-      var i = 0;
+      var c = car; if (!c) { ok = false; return }
+      var escribe = function (d, conRespuesta) { if (!car) throw new Error("Bluetooth desconectado");
+        return (conRespuesta || !c.writeValueWithoutResponse) ? c.writeValue(d) : c.writeValueWithoutResponse(d) };
+      var i = 0, n = 0;
       function sigue() {
         if (i >= bytes.length) return Promise.resolve();
-        var trozo = bytes.slice(i, i + 20); i += 20;
-        return (car.writeValueWithoutResponse ? car.writeValueWithoutResponse(trozo) : car.writeValue(trozo))
-          .then(function () { return (i % 400 === 0) ? espera(8) : null }).then(sigue);
+        var trozo = bytes.slice(i, i + 20); i += 20; n++;
+        return escribe(trozo, n % 12 === 0).then(function () { return espera(6) }).then(sigue);
       }
-      return p.then(sigue);
-    }).catch(function (e) { log("⚠ voz BT: " + textoError(e)) });
-    return cola.then(function () { var seg = (Date.now() - t0) / 1000; log("📡 Voz enviada: " + (bytes.length / 1024).toFixed(1) + " KB en " + seg.toFixed(1) + " s"); return seg });
+      return escribe(new TextEncoder().encode(cabecera + "\n"), true).then(function () { return espera(30) }).then(sigue);
+    }).catch(function (e) { ok = false; log("⚠ voz BT: " + textoError(e)) });
+    return cola.then(function () {
+      if (!ok) return -1;
+      var seg = (Date.now() - t0) / 1000; log("📡 Voz enviada: " + (bytes.length / 1024).toFixed(1) + " KB en " + seg.toFixed(1) + " s"); return seg;
+    });
   }
   function recibir(ev) {
     buf += new TextDecoder().decode(ev.target.value);
@@ -129,7 +133,16 @@
       return prom;
     }).then(function (c) { if (!c) throw new Error("No encuentro el canal para hablar con Otto"); return c });
   }
-  function desconectado() { car = null; ui.con.textContent = "🔗 Conectar"; ui.con.classList.remove("on"); est.modo = -1; pintaEstado(); paraIA(); log("🔌 Otto desconectado") }
+  var reconectando = 0;
+  function reconecta() {
+    if (!dev || car || reconectando > 3) return;
+    reconectando++; log("🔄 Reconectando… (" + reconectando + ")");
+    dev.gatt.connect().then(function (g) { return buscaCaracteristica(g) }).then(function (c) {
+      car = c; c.addEventListener("characteristicvaluechanged", recibir); return c.startNotifications();
+    }).then(function () { reconectando = 0; ui.con.textContent = "🔗 Conectado"; ui.con.classList.add("on"); log("✅ Reconectado") },
+            function () { setTimeout(reconecta, 1500) });
+  }
+  function desconectado() { setTimeout(reconecta, 800); car = null; ui.con.textContent = "🔗 Conectar"; ui.con.classList.remove("on"); est.modo = -1; pintaEstado(); paraIA(); log("🔌 Otto desconectado") }
   setInterval(function () { if (car) enviar("H" + (ls("otto_api") ? "1" : "0")) }, 1000);   // "estoy aquí" (y si hay clave de Gemini)
 
   // ---------- botones que se pueden mantener (movimientos: repiten cada 0,1 s)
@@ -438,12 +451,13 @@
       enviar("I" + t + "," + v.join(","));
     });
     // ¿con cuántos bytes puede empezar sin quedarse sin voz? (según lo rápido que fue el Bluetooth la última vez)
-    var bps = +ls("otto_bps") || 2500;
+    var bps = Math.min(6000, +ls("otto_bps") || 1500);
     var empezar = bps >= porSeg ? 1500 : Math.ceil(b.length * (1 - bps / porSeg)) + 1500;
     empezar = Math.max(800, Math.min(b.length, empezar));
     var t0 = Date.now();
     return enviarBin("B" + b.length + "," + Math.round(RATE) + "," + empezar, b).then(function (seg) {
-      if (seg > 0.3) ls("otto_bps", String(Math.round(b.length / seg)));
+      if (seg > 1) ls("otto_bps", String(Math.max(500, Math.min(6000, Math.round(b.length / seg)))));
+      if (seg < 0) { enviar("S20"); return decir(texto, "movil") }               // ha fallado el Bluetooth: habla el móvil
       if (mio !== turno) return;
       var falta = prep.seg * 1000 + 4000 - (Date.now() - t0);
       return new Promise(function (r) { esperaF = r; setTimeout(function () { if (esperaF === r) { esperaF = null; r() } }, Math.max(3000, falta)) });
@@ -541,7 +555,7 @@
     var conf = h("button", "ot-b", "⚙️"); conf.onclick = function () { verConfig = !verConfig; pinta() };
     [salir, ui.con, todos, cambia, conf].forEach(function (b) { top.appendChild(b) });
     raiz.appendChild(top);
-    var ver = h("span", "ot-est", "v18"); ver.style.marginLeft = "auto"; top.appendChild(ver);   // versión del controlador (para saber si el móvil tiene la nueva)
+    var ver = h("span", "ot-est", "v19"); ver.style.marginLeft = "auto"; top.appendChild(ver);   // versión del controlador (para saber si el móvil tiene la nueva)
     ui.est = h("div", "ot-est", "Sin conectar"); raiz.appendChild(ui.est);
     ui.aviso = h("div", "ot-mic"); ui.aviso.hidden = true; ui.aviso.style.background = "#5a3a10"; raiz.appendChild(ui.aviso);
     ui.main = h("div", "ot-main"); raiz.appendChild(ui.main);
