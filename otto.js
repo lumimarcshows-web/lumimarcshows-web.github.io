@@ -28,13 +28,13 @@
     ".ot-top{display:flex;gap:6px;flex-wrap:wrap;align-items:center}.ot-b{border:1px solid #c9a24b;background:#111a2e;border-radius:12px;padding:8px 12px}.ot-b.on{background:#c9a24b;color:#111}",
     ".ot-est{font-size:13px;opacity:.85;margin:6px 2px}.ot-dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:middle;border:1px solid #fff4}",
     ".ot-main{flex:1;display:flex;flex-direction:column;align-items:center;gap:12px;padding:10px 0}",
-    ".ot-mando{background:linear-gradient(#1b1f2a,#0c0f16);border-radius:34px;padding:18px 16px;display:grid;grid-template-columns:repeat(3,70px);gap:12px;box-shadow:0 10px 30px #0008;border:1px solid #2a3040}",
-    ".ot-k{height:56px;border-radius:50%;border:none;background:#2b303c;color:#fff;font-weight:700;font-size:15px;box-shadow:inset 0 -3px 0 #0006}.ot-k:active,.ot-k.pul{background:#c9a24b;color:#111}",
+    ".ot-mando{background:linear-gradient(#1b1f2a,#0c0f16);border-radius:34px;padding:18px 20px;display:grid;grid-template-columns:repeat(3,64px);gap:16px 20px;box-shadow:0 10px 30px #0008;border:1px solid #2a3040;justify-content:center}",
+    ".ot-k{width:64px;height:64px;flex:0 0 64px;padding:0;border-radius:50%;border:none;background:#2b303c;color:#fff;font-weight:700;font-size:15px;line-height:1.1;box-shadow:inset 0 -3px 0 #0006;display:flex;align-items:center;justify-content:center;text-align:center}.ot-k.peq{width:50px;height:50px;flex:0 0 50px;font-size:17px}.ot-k.ancho{width:auto;min-width:110px;flex:0 0 auto;border-radius:32px;padding:0 16px}.ot-k:active,.ot-k.pul{background:#c9a24b;color:#111}",
     ".ot-k.rojo{background:#d22;}.ot-k small{font-size:11px;font-weight:600}",
     ".ot-h{display:flex;gap:18px;align-items:center;justify-content:center;flex-wrap:wrap;width:100%}",
     ".ot-joy{width:160px;height:160px;border-radius:50%;background:radial-gradient(#263049,#121827);border:2px solid #c9a24b55;position:relative;touch-action:none}",
     ".ot-joy i{position:absolute;left:50%;top:50%;width:64px;height:64px;margin:-32px 0 0 -32px;border-radius:50%;background:#c9a24b;box-shadow:0 4px 12px #000a}",
-    ".ot-cen{display:flex;flex-direction:column;gap:8px;align-items:center;min-width:180px}.ot-fila{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}",
+    ".ot-cen{display:flex;flex-direction:column;gap:8px;align-items:center;min-width:180px}.ot-fila{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;max-width:340px}",
     ".ot-p{background:#0e1526;border:1px solid #2a3350;border-radius:16px;padding:12px;width:min(560px,100%)}.ot-p h3{margin:0 0 8px;font-size:15px;color:#e9c46a}",
     ".ot-grid{display:grid;grid-template-columns:repeat(16,1fr);gap:2px;margin:8px 0}.ot-grid span{aspect-ratio:1;border-radius:50%;background:#2a2f3a}.ot-grid span.on{background:#ff4040}",
     ".ot-in{width:100%;box-sizing:border-box;background:#0a1020;border:1px solid #3a4560;border-radius:10px;color:#fff;padding:9px;font:inherit;margin:4px 0 10px}",
@@ -71,13 +71,14 @@
     }
   }
   function conectar() {
-    if (!navigator.bluetooth) { alerta("Este navegador no tiene Bluetooth. En iPhone, abre la web con la app «Bluefy»."); return }
-    navigator.bluetooth.requestDevice({ filters: [{ services: [SRV] }, { namePrefix: "BT" }, { namePrefix: "Otto" }], optionalServices: [SRV] })
+    if (!navigator.bluetooth) { aviso("Este navegador no tiene Bluetooth. En iPhone, abre la web con la app «Bluefy»."); return }
+    aviso("Buscando… elige «BT05» (o el que se parezca) en la lista.");
+    navigator.bluetooth.requestDevice({ acceptAllDevices: true, optionalServices: [SRV] })
       .then(function (d) { dev = d; d.addEventListener("gattserverdisconnected", desconectado); ui.con.textContent = "⏳"; return d.gatt.connect() })
       .then(function (g) { return g.getPrimaryService(SRV) }).then(function (s) { return s.getCharacteristic(CHR) })
       .then(function (c) { car = c; c.addEventListener("characteristicvaluechanged", recibir); return c.startNotifications() })
-      .then(function () { ui.con.textContent = "🔗 Conectado"; ui.con.classList.add("on"); enviar("V" + (ls("otto_vel") || 5)); log("✅ Conectado a Otto") })
-      .catch(function (e) { ui.con.textContent = "🔗 Conectar"; if (e.name !== "NotFoundError") log("⚠ " + e.message) });
+      .then(function () { ui.con.textContent = "🔗 Conectado"; ui.con.classList.add("on"); aviso(""); enviar("V" + (ls("otto_vel") || 5)); log("✅ Conectado a Otto") })
+      .catch(function (e) { ui.con.textContent = "🔗 Conectar"; aviso(e.name === "NotFoundError" ? "No has elegido ningún Bluetooth." : "⚠ " + e.message) });
   }
   function desconectado() { car = null; ui.con.textContent = "🔗 Conectar"; ui.con.classList.remove("on"); est.modo = -1; pintaEstado(); paraIA(); log("🔌 Otto desconectado") }
   setInterval(function () { if (car) enviar("H" + (ls("otto_api") ? "1" : "0")) }, 1000);   // "estoy aquí" (y si hay clave de Gemini)
@@ -123,9 +124,9 @@
     var c = h("div", "ot-h");
     c.appendChild(joystick("a"));
     var cen = h("div", "ot-cen");
-    var f1 = h("div", "ot-fila"); f1.appendChild(k("⏻ <small>MODO</small>", K.POWER, "rojo")); f1.appendChild(k("🎨", K.EQ)); f1.appendChild(k("✨", K.REPT)); cen.appendChild(f1);
+    var f1 = h("div", "ot-fila"); f1.appendChild(k("⏻ <small>MODO</small>", K.POWER, "rojo ancho")); f1.appendChild(k("🎨", K.EQ)); f1.appendChild(k("✨", K.REPT)); cen.appendChild(f1);
     var f2 = h("div", "ot-fila"); f2.appendChild(k("VOL−", K.VOLMENOS)); f2.appendChild(k("VOL+", K.VOLMAS)); cen.appendChild(f2);
-    var f3 = h("div", "ot-fila"); for (var i = 0; i <= 9; i++) f3.appendChild(k(String(i), [K.N0, K.N1, K.N2, K.N3, K.N4, K.N5, K.N6, K.N7, K.N8, K.N9][i])); cen.appendChild(f3);
+    var f3 = h("div", "ot-fila"); for (var i = 0; i <= 9; i++) f3.appendChild(k(String(i), [K.N0, K.N1, K.N2, K.N3, K.N4, K.N5, K.N6, K.N7, K.N8, K.N9][i], "peq")); cen.appendChild(f3);
     var vl = h("div", "", "🐢 Velocidad 🐇"); var vel = h("input"); vel.type = "range"; vel.min = 1; vel.max = 10; vel.value = ls("otto_vel") || 5; vel.style.width = "170px";
     vel.oninput = function () { ls("otto_vel", vel.value); enviar("V" + vel.value) }; cen.appendChild(vl); cen.appendChild(vel);
     c.appendChild(cen);
@@ -290,7 +291,8 @@
   // ---------- pantalla principal
   var raiz = null, verConfig = false;
   function log(t) { if (!ui.log) return; ui.log.textContent = (t + "\n" + ui.log.textContent).slice(0, 3000) }
-  function alerta(t) { log("⚠ " + t) }
+  function alerta(t) { log("⚠ " + t); aviso("⚠ " + t) }
+  function aviso(t) { if (!ui.aviso) return; ui.aviso.textContent = t; ui.aviso.hidden = !t; if (t) log(t) }
   function pintaEstado() {
     if (!ui.est) return;
     var m = est.modo;
@@ -323,6 +325,7 @@
     [salir, ui.con, cambia, conf].forEach(function (b) { top.appendChild(b) });
     raiz.appendChild(top);
     ui.est = h("div", "ot-est", "Sin conectar"); raiz.appendChild(ui.est);
+    ui.aviso = h("div", "ot-mic"); ui.aviso.hidden = true; ui.aviso.style.background = "#5a3a10"; raiz.appendChild(ui.aviso);
     ui.main = h("div", "ot-main"); raiz.appendChild(ui.main);
     document.body.appendChild(raiz); document.body.style.overflow = "hidden";
     pinta(); pintaEstado();
